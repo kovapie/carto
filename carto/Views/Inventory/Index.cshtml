@@ -1,0 +1,194 @@
+﻿@model QuickGraph.BidirectionalGraph<carto.Models.CmdbItem, carto.Models.CmdbDependency>
+
+@{
+    ViewBag.Title = "Application Inventory";
+}
+
+<style type="text/css">
+    svg
+    {
+        background-color: white;
+    }
+
+    .node
+    {
+        fill: orange;
+    }
+
+path.link {
+  fill: none;
+  stroke: #999;
+  stroke-width: 4px;
+    marker-end: url(#end-arrow);
+  cursor: default;
+}
+
+    text.label
+    {
+        fill: black;
+        /*text-anchor: middle;*/
+    }
+
+    .Desktop
+    {
+        fill: blue;
+        opacity: 0.5;
+    }
+
+    .Service
+    {
+        fill: green;
+        opacity: 0.5;
+    }
+</style>
+
+        <p>
+            @Html.ActionLink("Report", "Report")
+        </p>
+
+
+<div id="container" style="width: 100%">
+    <div id="graph_container"/>
+    <button id="getgraph">Filter</button>
+    <input id="filter" type="text"/> 
+
+        <script>
+            var width = 960,
+                height = 500;
+
+            var force = d3.layout.force()
+                .size([width, height])
+                .linkDistance(150)
+                .charge(-500)
+                .on("tick", tick);
+
+            var svg = d3.select("#graph_container")
+    .append("svg").attr("class", "graph")
+    .attr("width", width)
+    .attr("height", height);
+
+            // define arrow markers for graph links
+            svg.append("defs").append("marker")
+                .attr("id", "end-arrow")
+                .attr("viewBox", "0 -5 10 10")
+                .attr("refX", 6)
+                .attr("markerWidth", 3)
+                .attr("markerHeight", 3)
+                .attr("orient", "auto")
+                .append("path")
+                .attr("d", "M0,-5L10,0L0,5")
+                .attr("fill", "#999");
+
+            svg.append("defs").append("marker")
+                    .attr("id", "start-arrow")
+                    .attr("viewBox", "0 -5 10 10")
+                    .attr("refX", 6)
+                    .attr("markerWidth", 3)
+                    .attr("markerHeight", 3)
+                    .attr("orient", "auto")
+                .append("path")
+                    .attr("d", "M10,-5L0,0L10,5")
+                    .attr("fill", "#999");
+
+            var link = svg.selectAll(".link");
+            var node = svg.selectAll(".node");
+
+            function tick() {
+                link.attr("d", function (d) {
+                    var deltaX = d.target.x - d.source.x,
+                        deltaY = d.target.y - d.source.y,
+                        dist = Math.sqrt(deltaX * deltaX + deltaY * deltaY),
+                        normX = deltaX / dist,
+                        normY = deltaY / dist,
+                        //sourcePadding = d.left ? 17 : 12,
+                        //targetPadding = d.right ? 17 : 12,
+                        sourcePadding = 12,
+                        targetPadding = 17,
+                        sourceX = d.source.x + (sourcePadding * normX),
+                        sourceY = d.source.y + (sourcePadding * normY),
+                        targetX = d.target.x - (targetPadding * normX),
+                        targetY = d.target.y - (targetPadding * normY);
+                    return 'M' + sourceX + ',' + sourceY + 'L' + targetX + ',' + targetY;
+                });
+
+                node.attr('transform', function (d) {
+                    return 'translate(' + d.x + ',' + d.y + ')';
+                });
+            }
+
+            function drawgraph(graphdata) {
+
+                var nodes = new Array();
+                var alllinks = new Array();
+                var links = new Array();
+                var nodeMap = {};
+
+                for (var i = 0; i < graphdata.length; i++) {
+                    var item = graphdata[i];
+                    var vertex = item.vertex;
+                    var edges = item.edges;
+                    nodeMap[vertex.Id] = vertex;
+                    nodes.push(vertex);
+                    for (var j = 0; j < edges.length; j++) {
+                        alllinks.push(edges[j]);
+                    }
+                }
+
+                for (var k = 0; k < alllinks.length; k++) {
+                    var edge = alllinks[k];
+                    if (edge.TargetId in nodeMap) {
+                        edge.target = nodeMap[edge.TargetId];
+                        edge.source = nodeMap[edge.SourceId];
+                        links.push(edge);
+                    }
+                }
+
+                force.nodes(nodes)
+                .links(links)
+                .start();
+
+                link = link.data(links);
+                link.exit().remove();
+                link.enter().append("path").attr("class", "link");
+
+                node = node.data(nodes, function (d) { return d.Id; });
+                node.exit().remove();
+
+                var g = node.enter().append("g").attr("class", "node");
+                g.append("title").text(function (d) { return d.Description; });
+                g.append("circle").attr("class", function (d) { return d.Attributes[1]; }).attr("r", 12);
+                g.append("text").attr("class", "label").text(function (d) { return d.Name; });
+
+                node.on("click", click)
+                .call(force.drag);
+
+                force.drag().on("dragstart", dragstart);
+
+                function dragstart(d) {
+                    d.fixed = true;
+                }
+
+                function click(n) {
+                    if (d3.event.defaultPrevented) return;
+                    if (d3.event.shiftKey && n.fixed) {
+                        n.fixed = false;
+                    }
+                }
+            }
+
+            d3.json("api/graph", function (error, graphdata) {
+                drawgraph(graphdata);
+            });
+
+        $(function () {
+            $("#getgraph").click(function () {
+                var filter = $("#filter").val();
+                var uri = filter == "" ? "api/graph" : "api/graph?$filter=" + filter;
+                d3.json(uri, function (error, graphdata) {
+                    drawgraph(graphdata);
+                });
+            });
+        });
+    </script>
+
+</div>

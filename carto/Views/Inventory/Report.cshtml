@@ -1,0 +1,96 @@
+﻿@{
+    ViewBag.Title = "Report";
+}
+
+<style>
+
+    table
+    {
+        font-family:"Trebuchet MS", Arial, Helvetica, sans-serif;
+        border-collapse:collapse;
+    }
+
+    td, th 
+    {
+        font-size:1em;
+        border:1px solid #98bf21;
+        padding:3px 7px 2px 7px;
+    }
+    
+    th 
+    {
+        font-size:1.1em;
+        text-align:left;
+        padding-top:5px;
+        padding-bottom:4px;
+        background-color:#A7C942;
+        color:#ffffff;
+    }
+    
+    td 
+    {
+        color:#000000;
+        background-color:#EAF2D3;
+    }
+</style>
+
+<h2>Report</h2>
+<script>
+    function onGraphLoaded(graphdata) {
+        //var nodeMap = {};
+
+        //for (var k = 0; k < graphdata.length; k++) {
+        //    var vertex = graphdata[k].vertex;
+        //    nodeMap[vertex.Id] = vertex;
+        //}
+
+        for (var i = 0; i < graphdata.length; i++) {
+            var item = graphdata[i];
+            var node = item.vertex;
+            var edges = item.edges;
+            var deps="";
+            for (var l = 0; l < edges.length; l++) {
+                //var edge = nodeMap[edges[l].TargetId];
+                if (deps != "") deps = deps + ",";
+                deps = deps + edges[l].Target.Name;
+            }
+            $("table").append(
+                "<tr>" +
+                    "<td>" + node.Name + "</td>" +
+                    "<td>" + node.Description + "</td>" +
+                    "<td>" + node.Attributes[1] + "</td>" +
+                    "<td>" + node.Attributes[2] + "</td>" +
+                    "<td>" + node.Attributes[4] + "</td>" +
+                    "<td>" + deps + "</td>" +
+                "</tr>");
+        }
+    }
+
+    $(function () {
+        $("#getgraph").click(function () {
+            $("tr:gt(0)").remove();
+            var filter = $("#filter").val();
+            var uri = filter == "" ? "/api/graph" : "/api/graph?" + filter;
+            $.get(uri).done(onGraphLoaded).fail(function (data, error) { alert(error + data); });
+        });
+        $.get("/api/graph").done(onGraphLoaded).fail(function (data, error) { alert(error + data); });
+    });
+</script>
+
+<div>
+    <button id="getgraph">Filter/Sort</button>
+    <input id="filter" type="text"/> 
+
+    <table>
+        <tr>
+            <th>Name</th>
+            <th>Description</th>
+            <th>Type</th>
+            <th>Technology</th>
+            <th>Owner</th>
+            <th>Dependencies</th>
+        </tr>
+    </table>
+</div>
+
+
