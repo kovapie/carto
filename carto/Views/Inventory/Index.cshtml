@@ -46,149 +46,193 @@ path.link {
             @Html.ActionLink("Report", "Report")
         </p>
 
+<aside data-bind="if: selectedItem">
+    <p>Name: <input data-bind="value: selectedItem().name"/></p>
+    <p>Description: <input data-bind="value: selectedItem().description"/></p>
+</aside>
 
 <div id="container" style="width: 100%">
     <div id="graph_container"/>
     <button id="getgraph">Filter</button>
     <input id="filter" type="text"/> 
-
-        <script>
-            var width = 960,
-                height = 500;
-
-            var force = d3.layout.force()
-                .size([width, height])
-                .linkDistance(150)
-                .charge(-500)
-                .on("tick", tick);
-
-            var svg = d3.select("#graph_container")
-    .append("svg").attr("class", "graph")
-    .attr("width", width)
-    .attr("height", height);
-
-            // define arrow markers for graph links
-            svg.append("defs").append("marker")
-                .attr("id", "end-arrow")
-                .attr("viewBox", "0 -5 10 10")
-                .attr("refX", 6)
-                .attr("markerWidth", 3)
-                .attr("markerHeight", 3)
-                .attr("orient", "auto")
-                .append("path")
-                .attr("d", "M0,-5L10,0L0,5")
-                .attr("fill", "#999");
-
-            svg.append("defs").append("marker")
-                    .attr("id", "start-arrow")
-                    .attr("viewBox", "0 -5 10 10")
-                    .attr("refX", 6)
-                    .attr("markerWidth", 3)
-                    .attr("markerHeight", 3)
-                    .attr("orient", "auto")
-                .append("path")
-                    .attr("d", "M10,-5L0,0L10,5")
-                    .attr("fill", "#999");
-
-            var link = svg.selectAll(".link");
-            var node = svg.selectAll(".node");
-
-            function tick() {
-                link.attr("d", function (d) {
-                    var deltaX = d.target.x - d.source.x,
-                        deltaY = d.target.y - d.source.y,
-                        dist = Math.sqrt(deltaX * deltaX + deltaY * deltaY),
-                        normX = deltaX / dist,
-                        normY = deltaY / dist,
-                        //sourcePadding = d.left ? 17 : 12,
-                        //targetPadding = d.right ? 17 : 12,
-                        sourcePadding = 12,
-                        targetPadding = 17,
-                        sourceX = d.source.x + (sourcePadding * normX),
-                        sourceY = d.source.y + (sourcePadding * normY),
-                        targetX = d.target.x - (targetPadding * normX),
-                        targetY = d.target.y - (targetPadding * normY);
-                    return 'M' + sourceX + ',' + sourceY + 'L' + targetX + ',' + targetY;
-                });
-
-                node.attr('transform', function (d) {
-                    return 'translate(' + d.x + ',' + d.y + ')';
-                });
-            }
-
-            function drawgraph(graphdata) {
-
-                var nodes = new Array();
-                var alllinks = new Array();
-                var links = new Array();
-                var nodeMap = {};
-
-                for (var i = 0; i < graphdata.length; i++) {
-                    var item = graphdata[i];
-                    var vertex = item.vertex;
-                    var edges = item.edges;
-                    nodeMap[vertex.Id] = vertex;
-                    nodes.push(vertex);
-                    for (var j = 0; j < edges.length; j++) {
-                        alllinks.push(edges[j]);
-                    }
-                }
-
-                for (var k = 0; k < alllinks.length; k++) {
-                    var edge = alllinks[k];
-                    if (edge.TargetId in nodeMap) {
-                        edge.target = nodeMap[edge.TargetId];
-                        edge.source = nodeMap[edge.SourceId];
-                        links.push(edge);
-                    }
-                }
-
-                force.nodes(nodes)
-                .links(links)
-                .start();
-
-                link = link.data(links);
-                link.exit().remove();
-                link.enter().append("path").attr("class", "link");
-
-                node = node.data(nodes, function (d) { return d.Id; });
-                node.exit().remove();
-
-                var g = node.enter().append("g").attr("class", "node");
-                g.append("title").text(function (d) { return d.Description; });
-                g.append("circle").attr("class", function (d) { return d.Attributes[1]; }).attr("r", 12);
-                g.append("text").attr("class", "label").text(function (d) { return d.Name; });
-
-                node.on("click", click)
-                .call(force.drag);
-
-                force.drag().on("dragstart", dragstart);
-
-                function dragstart(d) {
-                    d.fixed = true;
-                }
-
-                function click(n) {
-                    if (d3.event.defaultPrevented) return;
-                    if (d3.event.shiftKey && n.fixed) {
-                        n.fixed = false;
-                    }
-                }
-            }
-
-            d3.json("api/graph", function (error, graphdata) {
-                drawgraph(graphdata);
-            });
-
-        $(function () {
-            $("#getgraph").click(function () {
-                var filter = $("#filter").val();
-                var uri = filter == "" ? "api/graph" : "api/graph?$filter=" + filter;
-                d3.json(uri, function (error, graphdata) {
-                    drawgraph(graphdata);
-                });
-            });
-        });
-    </script>
-
 </div>
+
+<button id="refresh">refresh</button>
+
+<script>
+        var width = 960,
+            height = 500;
+
+    var force = d3.layout.force()
+        .size([width, height])
+        .linkDistance(150)
+        .charge(-500)
+        .on("tick", tick);
+
+    var svg = d3.select("#graph_container")
+        .append("svg").attr("class", "graph")
+        .attr("width", width)
+        .attr("height", height);
+
+    // define arrow markers for graph links
+    svg.append("defs").append("marker")
+        .attr("id", "end-arrow")
+        .attr("viewBox", "0 -5 10 10")
+        .attr("refX", 6)
+        .attr("markerWidth", 3)
+        .attr("markerHeight", 3)
+        .attr("orient", "auto")
+        .append("path")
+        .attr("d", "M0,-5L10,0L0,5")
+        .attr("fill", "#999");
+
+    svg.append("defs").append("marker")
+        .attr("id", "start-arrow")
+        .attr("viewBox", "0 -5 10 10")
+        .attr("refX", 6)
+        .attr("markerWidth", 3)
+        .attr("markerHeight", 3)
+        .attr("orient", "auto")
+        .append("path")
+        .attr("d", "M10,-5L0,0L10,5")
+        .attr("fill", "#999");
+
+    var viewModel = new GraphViewModel();
+    ko.applyBindings(viewModel);
+
+    var link = svg.selectAll(".link"),
+        node = svg.selectAll(".node");
+
+    loadgraph();
+
+    function tick() {
+        link.attr("d", function (d) {
+            var deltaX = d.target.x - d.source.x,
+                deltaY = d.target.y - d.source.y,
+                dist = Math.sqrt(deltaX * deltaX + deltaY * deltaY),
+                normX = deltaX / dist,
+                normY = deltaY / dist,
+                //sourcePadding = d.left ? 17 : 12,
+                //targetPadding = d.right ? 17 : 12,
+                sourcePadding = 12,
+                targetPadding = 17,
+                sourceX = d.source.x + (sourcePadding * normX),
+                sourceY = d.source.y + (sourcePadding * normY),
+                targetX = d.target.x - (targetPadding * normX),
+                targetY = d.target.y - (targetPadding * normY);
+            return 'M' + sourceX + ',' + sourceY + 'L' + targetX + ',' + targetY;
+        });
+
+        node.attr('transform', function (d) {
+            return 'translate(' + d.x + ',' + d.y + ')';
+        });
+    }
+
+    function loadgraph () {
+        var filter = $("#filter").val();
+        var uri = filter == "" ? "api/graph" : "api/graph?$filter=" + filter;
+        d3.json(uri, function (error, graphdata) {
+            drawgraph(graphdata);
+        });
+    }
+
+    function drawgraph(graphdata) {
+        viewModel.update(graphdata);
+        redraw();
+    }
+            
+    function redraw() {
+        force.nodes(viewModel.nodes())
+            .links(viewModel.links())
+            .start();
+
+        link = link.data(viewModel.links());
+        link.exit().remove();
+        link.enter().append("path").attr("class", "link");
+
+        node = node.data(viewModel.nodes(), function (d) { return d.Id; });
+        node.exit().remove();
+
+        var g = node.enter().append("g").attr("class", "node");
+        g.append("circle").attr("class", function (d) { return d.innerNode.Attributes[1]; }).attr("r", 12);
+        //g.append("text").attr("class", "label").attr("data-bind", "text: nodes()[0].name");
+        g.append("text").attr("class", "label").text(function (d) { return d.name(); });
+        //g.append("title").attr("data-bind", "text: description");
+        g.append("title").text(function (d) { return d.description(); });
+
+        node.select("text").text(function(d) { return d.name(); });
+        node.select("title").text(function (d) { return d.description(); });
+
+        node.on("click", click)
+            .call(force.drag);
+
+        force.drag().on("dragstart", dragstart);
+        
+        function dragstart(d) {
+            d.fixed = true;
+        }
+
+        function click(n) {
+            //if (d3.event.defaultPrevented) return;
+            if (d3.event.shiftKey && n.fixed) {
+                n.fixed = false;
+            }
+            
+            viewModel.selectedItem(n);
+        }
+    }
+
+    $(function () {
+        $("#getgraph").click(loadgraph);
+        $("#refresh").click(redraw);
+    });
+
+    function CmdbViewModel(node) {
+        this.innerNode = node;
+        this.Id = node.Id;
+        this.name = ko.observable(node.Name);
+        this.description = ko.observable(node.Description);
+    }
+    
+    function GraphViewModel() {
+
+        this.nodes = ko.observableArray();
+        this.links = ko.observableArray();
+
+        this.selectedItem = ko.observable();
+
+        this.update = function (graphdata) {
+            this.nodes.removeAll();
+            this.links.removeAll();
+            this.selectedItem(null);
+            var alllinks = new Array();
+            var nodeMap = {};
+
+            for (var i = 0; i < graphdata.length; i++) {
+                var item = graphdata[i];
+                var vertex = item.vertex;
+                var edges = item.edges;
+                var itemviewmodel = new CmdbViewModel(vertex);
+                nodeMap[vertex.Id] = itemviewmodel;
+                this.nodes.push(itemviewmodel);
+                for (var j = 0; j < edges.length; j++) {
+                    alllinks.push(edges[j]);
+                }
+            }
+
+            for (var k = 0; k < alllinks.length; k++) {
+                var edge = alllinks[k];
+                if (edge.TargetId in nodeMap) {
+                    edge.target = nodeMap[edge.TargetId];
+                    edge.source = nodeMap[edge.SourceId];
+                    this.links.push(edge);
+                }
+            }            
+        };
+
+        this.addApp = function() {
+            this.nodes.push(new CmdbViewModel({ Id: 50, Name: "app21", Description: "desc1" }));
+        };
+    }
+
+</script>
