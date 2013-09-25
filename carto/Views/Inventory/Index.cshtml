@@ -52,12 +52,16 @@ path.link {
 </aside>
 
 <div id="container" style="width: 100%">
-    <div id="graph_container"/>
     <button id="getgraph">Filter</button>
     <input id="filter" type="text"/> 
+        <svg class="graph">
+            <defs>
+                <marker id="end-arrow" viewBox="0 -5 10 10" refX="6" markerWidth="3" markerHeight="3" orient="auto">
+                    <path d="M0,-5L10,0L0,5" fill="#999" />
+                </marker>
+            </defs>
+        </svg>
 </div>
-
-<button id="refresh">refresh</button>
 
 <script>
         var width = 960,
@@ -69,33 +73,9 @@ path.link {
         .charge(-500)
         .on("tick", tick);
 
-    var svg = d3.select("#graph_container")
-        .append("svg").attr("class", "graph")
+    var svg = d3.select("svg")
         .attr("width", width)
         .attr("height", height);
-
-    // define arrow markers for graph links
-    svg.append("defs").append("marker")
-        .attr("id", "end-arrow")
-        .attr("viewBox", "0 -5 10 10")
-        .attr("refX", 6)
-        .attr("markerWidth", 3)
-        .attr("markerHeight", 3)
-        .attr("orient", "auto")
-        .append("path")
-        .attr("d", "M0,-5L10,0L0,5")
-        .attr("fill", "#999");
-
-    svg.append("defs").append("marker")
-        .attr("id", "start-arrow")
-        .attr("viewBox", "0 -5 10 10")
-        .attr("refX", 6)
-        .attr("markerWidth", 3)
-        .attr("markerHeight", 3)
-        .attr("orient", "auto")
-        .append("path")
-        .attr("d", "M10,-5L0,0L10,5")
-        .attr("fill", "#999");
 
     var viewModel = new GraphViewModel();
     ko.applyBindings(viewModel);
@@ -155,10 +135,8 @@ path.link {
 
         var g = node.enter().append("g").attr("class", "node");
         g.append("circle").attr("class", function (d) { return d.innerNode.Attributes[1]; }).attr("r", 12);
-        //g.append("text").attr("class", "label").attr("data-bind", "text: nodes()[0].name");
-        g.append("text").attr("class", "label").text(function (d) { return d.name(); });
-        //g.append("title").attr("data-bind", "text: description");
-        g.append("title").text(function (d) { return d.description(); });
+        g.append("text").attr("class", "label");
+        g.append("title");
 
         node.select("text").text(function(d) { return d.name(); });
         node.select("title").text(function (d) { return d.description(); });
@@ -188,20 +166,23 @@ path.link {
     });
 
     function CmdbViewModel(node) {
+        var self = this;
         this.innerNode = node;
         this.Id = node.Id;
         this.name = ko.observable(node.Name);
         this.description = ko.observable(node.Description);
+        this.isDirty = ko.computed(function () { return { name: self.name(), description: self.description() }; });
     }
     
     function GraphViewModel() {
-
+        var subs = [];
         this.nodes = ko.observableArray();
         this.links = ko.observableArray();
 
         this.selectedItem = ko.observable();
 
         this.update = function (graphdata) {
+            ko.utils.arrayForEach(subs, function (sub) { sub.dispose(); });
             this.nodes.removeAll();
             this.links.removeAll();
             this.selectedItem(null);
@@ -215,6 +196,9 @@ path.link {
                 var itemviewmodel = new CmdbViewModel(vertex);
                 nodeMap[vertex.Id] = itemviewmodel;
                 this.nodes.push(itemviewmodel);
+                subs.push(itemviewmodel.isDirty.subscribe(function () {
+                    redraw();
+                }));
                 for (var j = 0; j < edges.length; j++) {
                     alllinks.push(edges[j]);
                 }
