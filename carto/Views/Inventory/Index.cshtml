@@ -10,18 +10,30 @@
         background-color: white;
     }
 
+    .overlay
+    {
+        fill: none;
+        pointer-events: all;
+    }
+
     .node
     {
         fill: orange;
     }
 
-path.link {
-  fill: none;
-  stroke: #999;
-  stroke-width: 4px;
-    marker-end: url(#end-arrow);
-  cursor: default;
-}
+    .node.selected circle {
+        stroke: orange;
+        stroke-width: 4px;
+    }
+
+    path.link
+    {
+        fill: none;
+        stroke: #999;
+        stroke-width: 4px;
+        marker-end: url(#end-arrow);
+        cursor: default;
+    }
 
     text.label
     {
@@ -42,30 +54,34 @@ path.link {
     }
 </style>
 
-        <p>
-            @Html.ActionLink("Report", "Report")
-        </p>
-
-<aside data-bind="if: selectedItem">
-    <p>Name: <input data-bind="value: selectedItem().name"/></p>
-    <p>Description: <input data-bind="value: selectedItem().description"/></p>
-</aside>
+<p>
+    @Html.ActionLink("Report", "Report")
+</p>
 
 <div id="container" style="width: 100%">
     <button id="getgraph">Filter</button>
-    <input id="filter" type="text"/> 
-        <svg class="graph">
-            <defs>
-                <marker id="end-arrow" viewBox="0 -5 10 10" refX="6" markerWidth="3" markerHeight="3" orient="auto">
-                    <path d="M0,-5L10,0L0,5" fill="#999" />
-                </marker>
-            </defs>
-        </svg>
+    <input id="filter" type="text" />
+    <svg class="graph">
+        <defs>
+            <marker id="end-arrow" viewBox="0 -5 10 10" refX="6" markerWidth="3" markerHeight="3" orient="auto">
+                <path d="M0,-5L10,0L0,5" fill="#999" />
+            </marker>
+        </defs>
+    </svg>
 </div>
 
+<aside data-bind="if: selectedItem">
+    <p>Name:
+        <input data-bind="value: selectedItem().name" /></p>
+    <p>Description:
+        <input data-bind="value: selectedItem().description" /></p>
+</aside>
+
+<button id="save">Save</button>
+
 <script>
-        var width = 960,
-            height = 500;
+    var width = 960,
+        height = 500;
 
     var force = d3.layout.force()
         .size([width, height])
@@ -77,13 +93,25 @@ path.link {
         .attr("width", width)
         .attr("height", height);
 
+    svg.append("rect")
+    .attr("class", "overlay")
+    .attr("width", width)
+    .attr("height", height)
+    .call(d3.behavior.zoom().scaleExtent([0.5, 2]).on("zoom", zoom));
+    
+    var vis = svg.append("g");
+
     var viewModel = new GraphViewModel();
     ko.applyBindings(viewModel);
 
-    var link = svg.selectAll(".link"),
-        node = svg.selectAll(".node");
+    var link = vis.selectAll(".link"),
+        node = vis.selectAll(".node");
 
     loadgraph();
+
+    function zoom() {
+        vis.attr("transform", "translate(" + d3.event.translate + ")scale(" + d3.event.scale + ")");
+    }
 
     function tick() {
         link.attr("d", function (d) {
@@ -108,19 +136,19 @@ path.link {
         });
     }
 
-    function loadgraph () {
+    function loadgraph() {
         var filter = $("#filter").val();
         var uri = filter == "" ? "api/graph" : "api/graph?$filter=" + filter;
-        d3.json(uri, function (error, graphdata) {
-            drawgraph(graphdata);
-        });
+        $.get(uri)
+            .done(drawgraph)
+            .fail(function (error) { alert(error); });
     }
 
     function drawgraph(graphdata) {
         viewModel.update(graphdata);
         redraw();
     }
-            
+    
     function redraw() {
         force.nodes(viewModel.nodes())
             .links(viewModel.links())
@@ -137,15 +165,18 @@ path.link {
         g.append("circle").attr("class", function (d) { return d.innerNode.Attributes[1]; }).attr("r", 12);
         g.append("text").attr("class", "label");
         g.append("title");
+        node.classed("selected", function (d) {
+            return d == viewModel.selectedItem();
+        });
 
-        node.select("text").text(function(d) { return d.name(); });
+        node.select("text").text(function (d) { return d.name(); });
         node.select("title").text(function (d) { return d.description(); });
 
         node.on("click", click)
             .call(force.drag);
 
         force.drag().on("dragstart", dragstart);
-        
+
         function dragstart(d) {
             d.fixed = true;
         }
@@ -155,14 +186,22 @@ path.link {
             if (d3.event.shiftKey && n.fixed) {
                 n.fixed = false;
             }
-            
-            viewModel.selectedItem(n);
+            if (n == viewModel.selectedItem()) {
+                viewModel.selectedItem(null);
+            } else {
+                viewModel.selectedItem(n);
+            }
+            redraw();
         }
+    }
+
+    function onSave() {
+        $.post("api/graph", viewModel);
     }
 
     $(function () {
         $("#getgraph").click(loadgraph);
-        $("#refresh").click(redraw);
+        $("#save").click(onSave);
     });
 
     function CmdbViewModel(node) {
@@ -173,7 +212,7 @@ path.link {
         this.description = ko.observable(node.Description);
         this.isDirty = ko.computed(function () { return { name: self.name(), description: self.description() }; });
     }
-    
+
     function GraphViewModel() {
         var subs = [];
         this.nodes = ko.observableArray();
@@ -211,10 +250,10 @@ path.link {
                     edge.source = nodeMap[edge.SourceId];
                     this.links.push(edge);
                 }
-            }            
+            }
         };
 
-        this.addApp = function() {
+        this.addApp = function () {
             this.nodes.push(new CmdbViewModel({ Id: 50, Name: "app21", Description: "desc1" }));
         };
     }
