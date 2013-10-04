@@ -1,5 +1,8 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using QuickGraph;
+using carto.Api;
 
 namespace carto.Models
 {
@@ -65,6 +68,48 @@ namespace carto.Models
             g.AddVerticesAndEdge(RaDaR_RTS);
             g.AddVerticesAndEdge(RTS_SDS);
             Graph = g;
+        }
+
+        public CmdbItem Update(CmdbItem item)
+        {
+            //for thread safe version, clone graph, update, and swap, checking the version number
+            var currentVertex = Graph.Vertices.FirstOrDefault(v => v.Id == item.Id && v.Version == item.Version);
+            if (currentVertex == null)
+            {
+                throw new Exception();
+            }
+            item.Version = item.Version + 1;
+            Graph.AddVertex(item);
+            var outEdges = Graph.OutEdges(currentVertex);
+            var inEdges = Graph.InEdges(currentVertex);
+            foreach (var outEdge in outEdges)
+            {
+                outEdge.Source = item;
+                Graph.AddEdge(outEdge);
+            }
+            foreach (var inEdge in inEdges)
+            {
+                inEdge.Target = item;
+                Graph.AddEdge(inEdge);
+            }
+            Graph.RemoveVertex(currentVertex);
+            return item;
+        }
+
+        public CmdbItem Create(CmdbItem item)
+        {
+            var nextId = Graph.Vertices.Select(v => v.Id).Max() + 1;
+            var category = (item != null &&  item.Category != null && Categories.ContainsKey(item.Category.Id)) ? item.Category : Categories.First().Value;
+            var name = (item != null && item.Name != null) ? item.Name : string.Empty;
+            var newItem = new CmdbItem(category, nextId, name);
+            Graph.AddVertex(newItem);
+            return newItem;
+        }
+
+        public bool Delete(long id)
+        {
+            var currentVertex = Graph.Vertices.FirstOrDefault(v => v.Id == id);
+            return Graph.RemoveVertex(currentVertex);
         }
     }
 

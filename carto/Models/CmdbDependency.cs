@@ -26,8 +26,8 @@ namespace carto.Models
         //public string Transport { get; set; }
         //public string DataType { get; set; }
         [JsonIgnore]
-        public CmdbItem Source { get; private set; }
+        public CmdbItem Source { get; set; }
 
-        public CmdbItem Target { get; private set; }
+        public CmdbItem Target { get; set; }
     }
 }

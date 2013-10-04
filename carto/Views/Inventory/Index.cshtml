@@ -76,8 +76,9 @@
     <p>Description:
         <input data-bind="value: selectedItem().description" /></p>
 </aside>
-
-<button id="save">Save</button>
+    <button id="save" data-bind="enable: canSave">Save</button>
+    <button id="delete" data-bind="enable: selectedItem">Delete</button>
+    <button id="create">Create</button>
 
 <script>
     var width = 960,
@@ -139,7 +140,7 @@
     function loadgraph() {
         var filter = $("#filter").val();
         var uri = filter == "" ? "api/graph" : "api/graph?$filter=" + filter;
-        $.get(uri)
+        $.getJSON(uri)
             .done(drawgraph)
             .fail(function (error) { alert(error); });
     }
@@ -196,12 +197,47 @@
     }
 
     function onSave() {
-        $.post("api/graph", viewModel);
+        var  vertex = viewModel.selectedItem().toDto();
+        $.ajax({
+            type: "PUT",
+            contentType: "application/json;charset=utf-8",
+            url: "api/graph/" + vertex.Id,
+            data: JSON.stringify(vertex),
+        }).done(function (node) {
+            viewModel.updateNode(new CmdbViewModel(node));
+        });
+    }
+    
+    function onCreate() {
+        var vertex;
+        if (viewModel.selectedItem() != null) {
+            vertex = viewModel.selectedItem().toDto();
+        }
+        $.ajax({
+            type: "POST",
+            contentType: "application/json;charset=utf-8",
+            url: "api/graph",
+            data: JSON.stringify(vertex),
+        }).done(function (node) {
+                        viewModel.addNode(new CmdbViewModel(node));
+        });
+    }
+    
+    function onDelete() {
+        var vertex = viewModel.selectedItem();
+        $.ajax({
+            type: "DELETE",
+            url: "api/graph/" + vertex.Id,
+        }).done(function (node) {
+            viewModel.deleteNode(vertex);
+        });
     }
 
     $(function () {
         $("#getgraph").click(loadgraph);
         $("#save").click(onSave);
+        $("#create").click(onCreate);
+        $("#delete").click(onDelete);
     });
 
     function CmdbViewModel(node) {
@@ -211,14 +247,22 @@
         this.name = ko.observable(node.Name);
         this.description = ko.observable(node.Description);
         this.isDirty = ko.computed(function () { return { name: self.name(), description: self.description() }; });
+
+        this.toDto = function() {
+            this.innerNode.Name = this.name();
+            this.innerNode.Description = this.description();
+            return this.innerNode;
+        };
     }
 
     function GraphViewModel() {
+        var self = this;
         var subs = [];
         this.nodes = ko.observableArray();
         this.links = ko.observableArray();
 
         this.selectedItem = ko.observable();
+        this.canSave = ko.computed(function () { return self.selectedItem() != null; });
 
         this.update = function (graphdata) {
             ko.utils.arrayForEach(subs, function (sub) { sub.dispose(); });
@@ -253,8 +297,42 @@
             }
         };
 
-        this.addApp = function () {
-            this.nodes.push(new CmdbViewModel({ Id: 50, Name: "app21", Description: "desc1" }));
+        this.updateNode = function(node) {
+            for (var i = 0; i < this.nodes.length; i++) {
+                var currentNode = this.nodes[i];
+                if (currentNode.Id == node.Id && currentNode.version < node.Version) {
+                    //need to update subs?
+                    this.nodes[i] = node;
+                    for (var j = 0; j < this.links.length; j++) {
+                        var currentLink = this.links[j];
+                        if (currentLink.target == currentNode) {
+                            currentLink.target = node;                            
+                        }
+                        if (currentLink.source == currentNode) {
+                            currentLink.source = node;
+                        }
+                    }
+                    return true;
+                }  
+            }
+            return false;
+        };
+
+        this.addNode = function (node) {
+            this.nodes.push(node);
+            subs.push(node.isDirty.subscribe(function () {
+                redraw();
+            }));
+            redraw();
+        };
+
+        this.deleteNode = function (node) {
+            //update subs
+            //subs.pop(node.isDirty.subscribe(function () {
+            //    redraw();
+            //}));
+            this.nodes.pop(node);
+            redraw();
         };
     }
 

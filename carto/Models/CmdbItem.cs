@@ -12,11 +12,12 @@ namespace carto.Models
             Category = category;
             Id = id;
             Name = name;
+            Version = 1;
         }
 
         public CmdbItemCategory Category { get; private set; }
 
-        public long Id { get; private set; }
+        public long Id { get; set; }
         public long Version { get; set; }
 
         [Required]

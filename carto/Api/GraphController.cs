@@ -1,14 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
-using System.Net;
-using System.Net.Http;
-using System.Web.Helpers;
 using System.Web.Http;
-using System.Web.Mvc;
 using Newtonsoft.Json;
-using QuickGraph;
-using QuickGraph.Graphviz;
 using carto.Models;
 
 namespace carto.Api
@@ -19,6 +12,22 @@ namespace carto.Api
         {
             var graph = CmdbRepository.Instance.Graph;
             return graph.Vertices.Select(v => new VertexDto<CmdbItem, CmdbDependency>(v, graph.OutEdges(v))).AsQueryable();
+        }
+
+        public CmdbItem Put(long id, CmdbItem item)
+        {
+            return CmdbRepository.Instance.Update(item);
+        }
+
+
+        public CmdbItem Post(CmdbItem item)
+        {
+            return CmdbRepository.Instance.Create(item);
+        }
+
+        public bool Delete(long id)
+        {
+            return CmdbRepository.Instance.Delete(id);
         }
     }
 
