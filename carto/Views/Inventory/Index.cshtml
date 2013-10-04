@@ -10,6 +10,10 @@
         background-color: white;
     }
 
+    svg.ctrl {
+        cursor: crosshair;
+    }
+
     .overlay
     {
         fill: none;
@@ -19,6 +23,7 @@
     .node
     {
         fill: orange;
+        cursor: pointer;
     }
 
     .node.selected circle {
@@ -58,6 +63,9 @@
     @Html.ActionLink("Report", "Report")
 </p>
 
+<p>Filter accepts OData expressions. e.g: Vertex/Name eq 'RaDaR'</p>
+<p>Ctrl click on the graph to create a new node. If a node is selected, it will be cloned.</p>
+
 <div id="container" style="width: 100%">
     <button id="getgraph">Filter</button>
     <input id="filter" type="text" />
@@ -71,6 +79,7 @@
 </div>
 
 <aside data-bind="if: selectedItem">
+    <p> Id: <!--ko text: selectedItem().id--><!--/ko--> -v.<!--ko text: selectedItem().version--><!--/ko-->  </p>
     <p>Name:
         <input data-bind="value: selectedItem().name" /></p>
     <p>Description:
@@ -92,7 +101,8 @@
 
     var svg = d3.select("svg")
         .attr("width", width)
-        .attr("height", height);
+        .attr("height", height)
+        .on('mousedown', onMouseDown);
 
     svg.append("rect")
     .attr("class", "overlay")
@@ -159,7 +169,7 @@
         link.exit().remove();
         link.enter().append("path").attr("class", "link");
 
-        node = node.data(viewModel.nodes(), function (d) { return d.Id; });
+        node = node.data(viewModel.nodes(), function (d) { return d.id; });
         node.exit().remove();
 
         var g = node.enter().append("g").attr("class", "node");
@@ -208,7 +218,7 @@
         });
     }
     
-    function onCreate() {
+    function onCreate(point) {
         var vertex;
         if (viewModel.selectedItem() != null) {
             vertex = viewModel.selectedItem().toDto();
@@ -219,7 +229,10 @@
             url: "api/graph",
             data: JSON.stringify(vertex),
         }).done(function (node) {
-                        viewModel.addNode(new CmdbViewModel(node));
+            var nodevm = new CmdbViewModel(node);
+            nodevm.x = point[0];
+            nodevm.y = point[1];
+            viewModel.addNode(nodevm);
         });
     }
     
@@ -227,10 +240,30 @@
         var vertex = viewModel.selectedItem();
         $.ajax({
             type: "DELETE",
-            url: "api/graph/" + vertex.Id,
-        }).done(function (node) {
-            viewModel.deleteNode(vertex);
+            url: "api/graph/" + vertex.id,
+        }).done(function (isDeleted) {
+            if (isDeleted) {
+                viewModel.deleteNode(vertex);
+            }
         });
+    }
+
+    function onKeyDown(event) {
+        if (event.which === 17) {
+            svg.classed("ctrl", true);
+        }
+    }
+
+    function onKeyUp(event) {
+        if (event.which === 17) {
+            svg.classed("ctrl", false);
+        }
+    }
+
+    function onMouseDown() {
+        if (d3.event.ctrlKey) {
+            onCreate(d3.mouse(this));
+        }
     }
 
     $(function () {
@@ -238,12 +271,16 @@
         $("#save").click(onSave);
         $("#create").click(onCreate);
         $("#delete").click(onDelete);
+        
+        $(document).keydown(onKeyDown)
+            .keyup(onKeyUp);
     });
 
     function CmdbViewModel(node) {
         var self = this;
         this.innerNode = node;
-        this.Id = node.Id;
+        this.id = node.Id;
+        this.version = node.Version;
         this.name = ko.observable(node.Name);
         this.description = ko.observable(node.Description);
         this.isDirty = ko.computed(function () { return { name: self.name(), description: self.description() }; });
@@ -300,8 +337,11 @@
         this.updateNode = function(node) {
             for (var i = 0; i < this.nodes.length; i++) {
                 var currentNode = this.nodes[i];
-                if (currentNode.Id == node.Id && currentNode.version < node.Version) {
-                    //need to update subs?
+                if (currentNode.id == node.id && currentNode.version < node.version) {
+                    //TODO remove and dispose subscription to old node
+                    subs.push(node.isDirty.subscribe(function () {
+                        redraw();
+                    }));
                     this.nodes[i] = node;
                     for (var j = 0; j < this.links.length; j++) {
                         var currentLink = this.links[j];
@@ -312,6 +352,7 @@
                             currentLink.source = node;
                         }
                     }
+                    redraw();
                     return true;
                 }  
             }
@@ -327,11 +368,8 @@
         };
 
         this.deleteNode = function (node) {
-            //update subs
-            //subs.pop(node.isDirty.subscribe(function () {
-            //    redraw();
-            //}));
-            this.nodes.pop(node);
+            //TODO remove and dispose subscription for this node
+            this.nodes.remove(node);
             redraw();
         };
     }
