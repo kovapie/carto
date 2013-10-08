@@ -40,6 +40,18 @@
         cursor: default;
     }
 
+path.link.selected {
+  stroke-dasharray: 10,2;
+}
+
+path.link.dragline {
+  pointer-events: none;
+}
+
+path.link.hidden {
+  stroke-width: 0;
+}
+
     text.label
     {
         fill: black;
@@ -75,6 +87,7 @@
                 <path d="M0,-5L10,0L0,5" fill="#999" />
             </marker>
         </defs>
+        <path class="link dragline hidden" d="M0,0L0,0" />
     </svg>
 </div>
 
@@ -102,7 +115,9 @@
     var svg = d3.select("svg")
         .attr("width", width)
         .attr("height", height)
-        .on('mousedown', onMouseDown);
+        .on("mousedown", onMouseDown)
+        .on("mouseup", onMouseUp)
+        .on("mousemove", onMouseMove);
 
     svg.append("rect")
     .attr("class", "overlay")
@@ -111,6 +126,7 @@
     .call(d3.behavior.zoom().scaleExtent([0.5, 2]).on("zoom", zoom));
     
     var vis = svg.append("g");
+    var dragline = svg.select(".dragline");
 
     var viewModel = new GraphViewModel();
     ko.applyBindings(viewModel);
@@ -184,6 +200,8 @@
         node.select("title").text(function (d) { return d.description(); });
 
         node.on("click", click)
+        .on("mousedown", onNodeMouseDown)
+        .on("mouseup", onNodeMouseUp)
             .call(force.drag);
 
         force.drag().on("dragstart", dragstart);
@@ -203,6 +221,26 @@
                 viewModel.selectedItem(n);
             }
             redraw();
+        }
+        
+        function onNodeMouseDown(node) {
+            if (d3.event.ctrlKey) {
+                viewModel.fromItem(node);
+                dragline
+                  .classed('hidden', false)
+                  .attr('d', 'M' + viewModel.fromItem().x + ',' + viewModel.fromItem().y + 'L' + viewModel.fromItem().x + ',' + viewModel.fromItem().y);
+                redraw();
+            }
+        }
+
+        function onNodeMouseUp(node) {
+            if (viewModel.fromItem() && d3.event.ctrlKey) {
+                if (viewModel.fromItem() !== node) {
+                    viewModel.addLink({ source: viewModel.fromItem(), target: node });
+                    //TODO send put request to server to save new edge
+                }
+            }
+            viewModel.resetDragLine();
         }
     }
 
@@ -250,20 +288,33 @@
 
     function onKeyDown(event) {
         if (event.which === 17) {
+            node.on("mousedown.drag", null);
             svg.classed("ctrl", true);
         }
     }
 
     function onKeyUp(event) {
         if (event.which === 17) {
+            node.call(force.drag);
             svg.classed("ctrl", false);
+            viewModel.resetDragLine();
         }
     }
 
     function onMouseDown() {
-        if (d3.event.ctrlKey) {
+        if (d3.event.ctrlKey && !viewModel.fromItem()) {
             onCreate(d3.mouse(this));
         }
+    }
+
+    function onMouseUp() {
+        viewModel.resetDragLine();
+    }
+    
+    function onMouseMove() {
+        if (!viewModel.fromItem()) return;
+        dragline.attr('d', 'M' + viewModel.fromItem().x + ',' + viewModel.fromItem().y + 'L' + d3.mouse(this)[0] + ',' + d3.mouse(this)[1]);
+        redraw();
     }
 
     $(function () {
@@ -272,7 +323,8 @@
         $("#create").click(onCreate);
         $("#delete").click(onDelete);
         
-        $(document).keydown(onKeyDown)
+        $(document)
+            .keydown(onKeyDown)
             .keyup(onKeyUp);
     });
 
@@ -300,6 +352,8 @@
 
         this.selectedItem = ko.observable();
         this.canSave = ko.computed(function () { return self.selectedItem() != null; });
+
+        this.fromItem = ko.observable();
 
         this.update = function (graphdata) {
             ko.utils.arrayForEach(subs, function (sub) { sub.dispose(); });
@@ -371,6 +425,16 @@
             //TODO remove and dispose subscription for this node
             this.nodes.remove(node);
             redraw();
+        };
+
+        this.addLink = function(link) {
+            this.links.push(link);
+            redraw();
+        };
+
+        this.resetDragLine = function() {
+            this.fromItem(null);
+            dragline.classed("hidden", true);
         };
     }
 
