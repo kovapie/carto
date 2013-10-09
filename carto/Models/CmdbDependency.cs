@@ -18,7 +18,7 @@ namespace carto.Models
         public long SourceId { get; set; }
         public long TargetId { get; set; }
 
-        public long Id { get; private set; }
+        public long Id { get; set; }
         public long Version { get; set; }
 
         public dynamic Attributes { get; set; }

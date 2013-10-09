@@ -111,6 +111,16 @@ namespace carto.Models
             var currentVertex = Graph.Vertices.FirstOrDefault(v => v.Id == id);
             return Graph.RemoveVertex(currentVertex);
         }
+
+        public CmdbDependency AddEdge(CmdbDependency edge)
+        {
+            var nextId = Graph.Edges.Select(e => e.Id).Max() + 1;
+            edge.Id = nextId;
+            edge.Source = Graph.Vertices.First(v => v.Id == edge.SourceId);
+            edge.Target = Graph.Vertices.First(v => v.Id == edge.TargetId);
+            Graph.AddEdge(edge);
+            return edge;
+        }
     }
 
 }
