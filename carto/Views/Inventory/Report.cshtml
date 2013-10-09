@@ -70,10 +70,10 @@
         $("#getgraph").click(function () {
             $("tr:gt(0)").remove();
             var filter = $("#filter").val();
-            var uri = filter == "" ? "/api/graph" : "/api/graph?" + filter;
+            var uri = filter == "" ? "/api/graph/node" : "/api/graph/node?" + filter;
             $.get(uri).done(onGraphLoaded).fail(function (data, error) { alert(error + data); });
         });
-        $.get("/api/graph").done(onGraphLoaded).fail(function (data, error) { alert(error + data); });
+        $.get("/api/graph/node").done(onGraphLoaded).fail(function (data, error) { alert(error + data); });
     });
 </script>
 
