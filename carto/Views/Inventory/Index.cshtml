@@ -40,7 +40,7 @@
         cursor: default;
     }
 
-path.link.selected {
+    path.link.selected {
   stroke-dasharray: 10,2;
 }
 
@@ -99,9 +99,15 @@ path.link.hidden {
     <p>Description:
         <input data-bind="value: selectedItem().description" /></p>
 </aside>
-    <button id="save" data-bind="enable: canSave">Save</button>
-    <button id="delete" data-bind="enable: selectedItem">Delete</button>
-    <button id="create">Create</button>
+
+<aside data-bind="if: selectedLink">
+    <p> Id: <!--ko text: selectedLink().id--><!--/ko--> -v.<!--ko text: selectedLink().version--><!--/ko-->  </p>
+    <p>Source:
+        <span data-bind="text: selectedLink().source.name" /></p>
+    <p>Target:
+        <span data-bind="text: selectedLink().target.name" /></p>
+</aside>
+
 
 <script>
     var width = 960,
@@ -185,6 +191,10 @@ path.link.hidden {
         link = link.data(viewModel.links());
         link.exit().remove();
         link.enter().append("path").attr("class", "link");
+        link.classed("selected", function (d) {
+            return d === viewModel.selectedLink();
+        });
+        link.on("click", onLinkClicked);
 
         node = node.data(viewModel.nodes(), function (d) { return d.id; });
         node.exit().remove();
@@ -194,7 +204,7 @@ path.link.hidden {
         g.append("text").attr("class", "label");
         g.append("title");
         node.classed("selected", function (d) {
-            return d == viewModel.selectedItem();
+            return d === viewModel.selectedItem();
         });
 
         node.select("text").text(function (d) { return d.name(); });
@@ -216,14 +226,25 @@ path.link.hidden {
             if (d3.event.shiftKey && n.fixed) {
                 n.fixed = false;
             }
-            if (n == viewModel.selectedItem()) {
+            if (n === viewModel.selectedItem()) {
                 viewModel.selectedItem(null);
             } else {
                 viewModel.selectedItem(n);
+                viewModel.selectedLink(null);
             }
             redraw();
         }
         
+        function onLinkClicked(l) {
+            if (l === viewModel.selectedLink()) {
+                viewModel.selectedLink(null);
+            } else {
+                viewModel.selectedLink(l);
+                viewModel.selectedItem(null);
+            }
+            redraw();
+        }
+
         function onNodeMouseDown(node) {
             if (d3.event.ctrlKey) {
                 viewModel.fromItem(node);
@@ -244,15 +265,18 @@ path.link.hidden {
         }
     }
 
-    function onSave() {
-        var  vertex = viewModel.selectedItem().toDto();
+    function onSave(node) {
+        if (!node) {
+            node = viewModel.selectedItem();
+        }
+        var  vertex = node.toDto();
         $.ajax({
             type: "PUT",
             contentType: "application/json;charset=utf-8",
             url: "api/graph/node/" + vertex.Id,
             data: JSON.stringify(vertex),
-        }).done(function (node) {
-            viewModel.updateNode(new CmdbViewModel(node));            
+        }).done(function (savedNode) {
+            viewModel.updateNode(new CmdbViewModel(savedNode));
         });
     }
     
@@ -300,13 +324,37 @@ path.link.hidden {
         });
     }
 
+    function onDeleteLink() {
+        var selectedLink = viewModel.selectedLink();
+        $.ajax({
+            type: "DELETE",
+            url: "api/graph/link/" + selectedLink.id,
+        }).done(function (isDeleted) {
+            if (isDeleted) {
+                viewModel.deleteLink(selectedLink);
+            }
+        });
+    }
+
     function onKeyDown(event) {
-        if (event.which === 17) {
-            node.on("mousedown.drag", null);
-            svg.classed("ctrl", true);
-        }
-        if (viewModel.selectedItem() && event.which === 46) {
-            onDelete();
+        switch (event.which) {
+            case 17: //ctrl
+                node.on("mousedown.drag", null);
+                svg.classed("ctrl", true);
+                break;
+            case 46: //del
+            case 109: //num -
+                if (viewModel.selectedItem()) {
+                    onDelete();        
+                }
+                if (viewModel.selectedLink()) {
+                    onDeleteLink();
+                }
+                break;
+            case 45: //ins
+            case 107: //num +
+                onCreate({});
+                break;
         }
     }
 
@@ -336,10 +384,7 @@ path.link.hidden {
 
     $(function () {
         $("#getgraph").click(loadgraph);
-        $("#save").click(onSave);
-        $("#create").click(onCreate);
-        $("#delete").click(onDelete);
-        
+
         $(document)
             .keydown(onKeyDown)
             .keyup(onKeyUp);
@@ -383,6 +428,7 @@ path.link.hidden {
         this.links = ko.observableArray();
 
         this.selectedItem = ko.observable();
+        this.selectedLink = ko.observable();
         this.canSave = ko.computed(function () { return self.selectedItem() != null; });
 
         this.fromItem = ko.observable();
@@ -392,6 +438,7 @@ path.link.hidden {
             this.nodes.removeAll();
             this.links.removeAll();
             this.selectedItem(null);
+            this.selectedLink(null);
             var alllinks = new Array();
             var nodeMap = {};
 
@@ -403,6 +450,7 @@ path.link.hidden {
                 nodeMap[vertex.Id] = itemviewmodel;
                 this.nodes.push(itemviewmodel);
                 subs.push(itemviewmodel.isDirty.subscribe(function () {
+                    onSave(itemviewmodel);
                     redraw();
                 }));
                 for (var j = 0; j < edges.length; j++) {
@@ -426,6 +474,7 @@ path.link.hidden {
                 if (currentNode.id === node.id && currentNode.version < node.version) {
                     //TODO remove and dispose subscription to old node
                     subs.push(node.isDirty.subscribe(function () {
+                        onSave(node);
                         redraw();
                     }));
                     node.x = currentNode.x;
@@ -442,6 +491,7 @@ path.link.hidden {
                     }
                     if (self.selectedItem() === currentNode) {
                         self.selectedItem(node);
+                        self.selectedLink(null);
                     }
                     redraw();
                     return true;
@@ -453,8 +503,11 @@ path.link.hidden {
         this.addNode = function (node) {
             this.nodes.push(node);
             subs.push(node.isDirty.subscribe(function () {
+                onSave(node);
                 redraw();
             }));
+            viewModel.selectedItem(node);
+            viewModel.selectedLink(null);
             redraw();
         };
 
@@ -464,11 +517,24 @@ path.link.hidden {
                 return (item.source === node || item.target === node);
             });
             self.nodes.remove(node);
+            if (viewModel.selectedItem() === node) {
+                viewModel.selectedItem(null);
+            }
             redraw();
         };
 
         this.addLink = function (link) {
             this.links.push(link);
+            viewModel.selectedLink(link);
+            viewModel.selectedItem(null);
+            redraw();
+        };
+
+        this.deleteLink = function (link) {
+            self.links.remove(link);
+            if (viewModel.selectedLink() === link) {
+                viewModel.selectedLink(null);
+            }
             redraw();
         };
 

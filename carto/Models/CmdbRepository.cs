@@ -31,6 +31,8 @@ namespace carto.Models
             var urlAttribute = new CmdbAttributeDefinition {Id = 5, Name = "Url Link", Type = typeof (string)};
             var businessOwnerAttribute = new CmdbAttributeDefinition {Id = 6, Name = "Business Owner", Type = typeof (string)};
             var componentVersionAttribute = new CmdbAttributeDefinition {Id = 7, Name = "Version", Type = typeof (string)};
+            var criticalityAttribute = new CmdbAttributeDefinition {Id = 8, Name = "Criticality", Type = typeof (string)}; //non critical, critical, mission critical
+            var vendorAttribute = new CmdbAttributeDefinition {Id = 9, Name = "Vendor", Type = typeof (string)};
             //var licencesAttribute = new CmdbAttributeDefinition {Id = 8, Name = "Licences", Type = typeof (List<string>)};
 
             AttributeDefinitions = new Dictionary<long, ICollection<CmdbAttributeDefinition>>();
@@ -120,6 +122,12 @@ namespace carto.Models
             edge.Target = Graph.Vertices.First(v => v.Id == edge.TargetId);
             Graph.AddEdge(edge);
             return edge;
+        }
+
+        public bool DeleteLink(long id)
+        {
+            var edge = Graph.Edges.First(e => e.Id == id);
+            return Graph.RemoveEdge(edge);
         }
     }
 

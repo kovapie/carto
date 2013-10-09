@@ -48,6 +48,12 @@ namespace carto.Api
             return CmdbRepository.Instance.Graph.Edges.First(e => e.Id == id);
         }
 
+        [HttpDelete]
+        [ActionName("link")]
+        public bool DeleteLink(long id)
+        {
+            return CmdbRepository.Instance.DeleteLink(id);
+        }
     }
 
     public class VertexDto<TVertex, TEdge>
