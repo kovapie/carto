@@ -6,6 +6,10 @@ namespace carto.Models
 {
     public class CmdbItem
     {
+        //for BSOn serialization
+        public CmdbItem()
+        {}
+
         public CmdbItem(CmdbItemCategory category, long id, string name)
         {
             Attributes = new Dictionary<long, object>();
@@ -15,13 +19,13 @@ namespace carto.Models
             Version = 1;
         }
 
-        public CmdbItemCategory Category { get; private set; }
+        public CmdbItemCategory Category { get; set; }
 
         public long Id { get; set; }
         public long Version { get; set; }
 
         [Required]
-        public string Name { get; private set; }
+        public string Name { get; set; }
         public string Description { get; set; }
 
         public IDictionary<long,object> Attributes { get; set; }

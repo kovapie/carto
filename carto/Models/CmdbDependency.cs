@@ -1,4 +1,5 @@
 ﻿using System.Dynamic;
+using MongoDB.Bson.Serialization.Attributes;
 using Newtonsoft.Json;
 
 namespace carto.Models
@@ -26,8 +27,10 @@ namespace carto.Models
         //public string Transport { get; set; }
         //public string DataType { get; set; }
         [JsonIgnore]
+        [BsonIgnore]
         public CmdbItem Source { get; set; }
 
+        [BsonIgnore]
         public CmdbItem Target { get; set; }
     }
 }

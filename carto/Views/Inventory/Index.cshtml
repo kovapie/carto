@@ -344,16 +344,20 @@ path.link.hidden {
                 break;
             case 46: //del
             case 109: //num -
-                if (viewModel.selectedItem()) {
-                    onDelete();        
-                }
-                if (viewModel.selectedLink()) {
-                    onDeleteLink();
+                if (event.ctrlKey) {
+                    if (viewModel.selectedItem()) {
+                        onDelete();
+                    }
+                    if (viewModel.selectedLink()) {
+                        onDeleteLink();
+                    }
                 }
                 break;
             case 45: //ins
             case 107: //num +
-                onCreate({});
+                if (event.ctrlKey) {
+                    onCreate({});
+                }
                 break;
         }
     }
