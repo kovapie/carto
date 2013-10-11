@@ -1,37 +1,50 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Configuration;
 using System.Linq;
-using MongoDB.Bson;
+using System.Linq.Expressions;
 using MongoDB.Driver;
 using MongoDB.Driver.Builders;
 using QuickGraph;
-using carto.Api;
 
 namespace carto.Models
 {
     public class CmdbRepository
     {
         private static CmdbRepository _instance;
-        private readonly MongoDatabase _database;
-        private readonly MongoCollection<CmdbItem> _dbNodes;
-        private readonly MongoCollection<CmdbDependency> _dbEdges;
+        private readonly IRepositoryAdapter<CmdbItem> _nodesAdapter;
+        private readonly IRepositoryAdapter<CmdbDependency> _edgesAdapter;
 
         public static CmdbRepository Instance
         {
-            get { return _instance ?? (_instance = new CmdbRepository()); }
+            get
+            {
+                if (_instance == null)
+                {
+                    bool useMongo;
+                    if (Boolean.TryParse(ConfigurationManager.AppSettings["useMongo"], out useMongo) && useMongo)
+                    {
+                        _instance = new CmdbRepository(new RepositoryAdapterMongoDb<CmdbItem>("nodes"), new RepositoryAdapterMongoDb<CmdbDependency>("edges"));
+                    }
+                    else
+                    {
+                        _instance = new CmdbRepository(new RepositoryAdapterStub<CmdbItem>(), new RepositoryAdapterStub<CmdbDependency>());
+                    }
+                }
+                return _instance;
+            }
         }
 
         public BidirectionalGraph<CmdbItem, CmdbDependency> Graph { get; private set; }
         public IDictionary<long, ICollection<CmdbAttributeDefinition>> AttributeDefinitions { get; set; }
         public IDictionary<long, CmdbItemCategory> Categories { get; set; }
 
-        private CmdbRepository()
+        private CmdbRepository(IRepositoryAdapter<CmdbItem> nodesAdapter, IRepositoryAdapter<CmdbDependency> edgesAdapter)
         {
-            var client = new MongoClient("mongodb://carto:carto@riskdevlx1.london.daiwa.global:27017/carto");
-            _database = client.GetServer().GetDatabase("carto");
-            _dbNodes = _database.GetCollection<CmdbItem>("nodes");
-            _dbEdges = _database.GetCollection<CmdbDependency>("edges");
-            
+            _nodesAdapter = nodesAdapter;
+            _edgesAdapter = edgesAdapter;
+
             var applicationCategory = new CmdbItemCategory(1, "Application");
             Categories = new Dictionary<long, CmdbItemCategory> {{applicationCategory.Id, applicationCategory}};
 
@@ -42,9 +55,9 @@ namespace carto.Models
             var urlAttribute = new CmdbAttributeDefinition {Id = 5, Name = "Url Link", Type = typeof (string)};
             var businessOwnerAttribute = new CmdbAttributeDefinition {Id = 6, Name = "Business Owner", Type = typeof (string)};
             var componentVersionAttribute = new CmdbAttributeDefinition {Id = 7, Name = "Version", Type = typeof (string)};
-            var criticalityAttribute = new CmdbAttributeDefinition {Id = 8, Name = "Criticality", Type = typeof (string)}; //non critical, critical, mission critical
-            var vendorAttribute = new CmdbAttributeDefinition {Id = 9, Name = "Vendor", Type = typeof (string)};
-            var wikiAttribute = new CmdbAttributeDefinition {Id = 10, Name = "Wiki Url", Type = typeof (string)};
+            //var criticalityAttribute = new CmdbAttributeDefinition {Id = 8, Name = "Criticality", Type = typeof (string)}; //non critical, critical, mission critical
+            //var vendorAttribute = new CmdbAttributeDefinition {Id = 9, Name = "Vendor", Type = typeof (string)};
+            //var wikiAttribute = new CmdbAttributeDefinition {Id = 10, Name = "Wiki Url", Type = typeof (string)};
             //var licencesAttribute = new CmdbAttributeDefinition {Id = 8, Name = "Licences", Type = typeof (List<string>)};
 
             AttributeDefinitions = new Dictionary<long, ICollection<CmdbAttributeDefinition>>();
@@ -63,8 +76,8 @@ namespace carto.Models
             
             var g = new BidirectionalGraph<CmdbItem, CmdbDependency>();
 
-            var nodes = _dbNodes.FindAll().ToList();
-            var edges = _dbEdges.FindAll().ToList();
+            var nodes = _nodesAdapter.ReadAll().ToList();
+            var edges = _edgesAdapter.ReadAll().ToList();
 
             g.AddVertexRange(nodes);
 
@@ -100,11 +113,11 @@ namespace carto.Models
             var RaDaR_RTS = new CmdbDependency(1, RaDaR, RTS);
             var RTS_SDS = new CmdbDependency(2, RTS, SDS);
 
-            _dbNodes.Insert(RaDaR);
-            _dbNodes.Insert(RTS);
-            _dbNodes.Insert(SDS);
-            _dbEdges.Insert(RaDaR_RTS);
-            _dbEdges.Insert(RTS_SDS);
+            _nodesAdapter.Create(RaDaR);
+            _nodesAdapter.Create(RTS);
+            _nodesAdapter.Create(SDS);
+            _edgesAdapter.Create(RaDaR_RTS);
+            _edgesAdapter.Create(RTS_SDS);
         }
 
         public CmdbItem Update(CmdbItem item)
@@ -117,7 +130,7 @@ namespace carto.Models
             }
             item.Version = item.Version + 1;
             
-            _dbNodes.Save(item);
+            _nodesAdapter.Update(item);
 
             Graph.AddVertex(item);
             var outEdges = Graph.OutEdges(currentVertex);
@@ -144,7 +157,7 @@ namespace carto.Models
             var name = (item != null && item.Name != null) ? item.Name : string.Empty;
             var newItem = new CmdbItem(category, nextId, name);
             
-            _dbNodes.Insert(newItem);
+            _nodesAdapter.Create(newItem);
 
             Graph.AddVertex(newItem);
 
@@ -154,9 +167,8 @@ namespace carto.Models
 
         public bool Delete(long id)
         {
-            //TODO archive in a nodes_archive collection?
-            var query = Query<CmdbItem>.EQ(c => c.Id, id);
-            _dbNodes.Remove(query);
+            //TODO archive in a nodes_archive collection?            
+            _nodesAdapter.Delete(id);
 
             var currentVertex = Graph.Vertices.FirstOrDefault(v => v.Id == id);
             return Graph.RemoveVertex(currentVertex);
@@ -169,7 +181,7 @@ namespace carto.Models
             edge.Source = Graph.Vertices.First(v => v.Id == edge.SourceId);
             edge.Target = Graph.Vertices.First(v => v.Id == edge.TargetId);
 
-            _dbEdges.Insert(edge);
+            _edgesAdapter.Create(edge);
 
             Graph.AddEdge(edge);
             return edge;
@@ -177,12 +189,83 @@ namespace carto.Models
 
         public bool DeleteLink(long id)
         {
-            var query = Query<CmdbDependency>.EQ(c => c.Id, id);
-            _dbEdges.Remove(query);
+            _edgesAdapter.Delete(id);
 
             var edge = Graph.Edges.First(e => e.Id == id);
             return Graph.RemoveEdge(edge);
         }
     }
 
+    public interface IRepositoryAdapter<T>
+    {
+        IEnumerable<T> ReadAll();
+        T Create(T item);
+        T Update(T item);
+        bool Delete(long id);
+    }
+
+    public class RepositoryAdapterMongoDb<T>:IRepositoryAdapter<T>
+    {
+        private readonly MongoDatabase _database;
+        private readonly MongoCollection<T> _dbCollection;
+        private readonly Expression<Func<T, long>> _idGetter;
+
+        public RepositoryAdapterMongoDb(string collectionName)
+        {
+            var param = Expression.Parameter(typeof(T));
+            var member = Expression.Property(param, "Id");
+            _idGetter = Expression.Lambda<Func<T, long>>(member, param);
+            var connectionString = ConfigurationManager.ConnectionStrings["MongoDb"].ConnectionString;
+            var client = new MongoClient(connectionString);
+            _database = client.GetServer().GetDatabase("carto");
+            _dbCollection = _database.GetCollection<T>(collectionName);
+        }
+
+        public IEnumerable<T> ReadAll()
+        {
+            return _dbCollection.FindAll();
+        }
+
+        public T Create(T item)
+        {
+            _dbCollection.Insert(item);
+            return item;
+        }
+
+        public T Update(T item)
+        {
+            _dbCollection.Save(item);
+            return item;
+        }
+
+        public bool Delete(long id)
+        {
+            var query = Query<T>.EQ(_idGetter, id);
+            var res = _dbCollection.Remove(query);
+            return res.Ok;
+        }
+    }
+
+    public class RepositoryAdapterStub<T>:IRepositoryAdapter<T>
+    {
+        public IEnumerable<T> ReadAll()
+        {
+            return new Collection<T>();
+        }
+
+        public T Create(T item)
+        {
+            return item;
+        }
+
+        public T Update(T item)
+        {
+            return item;
+        }
+
+        public bool Delete(long id)
+        {
+            return true;
+        }
+    }
 }

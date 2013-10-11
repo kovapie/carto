@@ -343,7 +343,6 @@ path.link.hidden {
                 svg.classed("ctrl", true);
                 break;
             case 46: //del
-            case 109: //num -
                 if (event.ctrlKey) {
                     if (viewModel.selectedItem()) {
                         onDelete();
@@ -354,10 +353,13 @@ path.link.hidden {
                 }
                 break;
             case 45: //ins
-            case 107: //num +
                 if (event.ctrlKey) {
                     onCreate({});
                 }
+                break;
+            case 109: //num -
+            case 107: //num +
+                //TODO expand/collapse node
                 break;
         }
     }
