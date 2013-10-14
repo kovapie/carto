@@ -71,17 +71,15 @@ path.link.hidden {
     }
 </style>
 
-<p>
-    @Html.ActionLink("Report", "Report")
-</p>
-
-<p>Filter accepts OData expressions. e.g: Vertex/Name eq 'RaDaR'</p>
-<p>Ctrl click on the graph to create a new node. If a node is selected, it will be cloned.</p>
-<p>Ctrl click and drag from a node to create a dependency.</p>
+<ul data-bind="foreach: graphs">
+    <li>
+        <button data-bind="title: description, text: name, click: $root.selectGraph"></button>
+    </li>
+</ul>
 
 <div id="container" style="width: 100%">
-    <button id="getgraph">Filter</button>
-    <input id="filter" type="text" />
+    <button data-bind="click: loadGraph">Filter</button>
+    <input type="text" data-bind="value: filter" />
     <svg class="graph">
         <defs>
             <marker id="end-arrow" viewBox="0 -5 10 10" refX="6" markerWidth="3" markerHeight="3" orient="auto">
@@ -107,6 +105,10 @@ path.link.hidden {
     <p>Target:
         <span data-bind="text: selectedLink().target.name" /></p>
 </aside>
+
+<p data-bind="if: selectedGraph">
+<a data-bind="attr: { href: '/Inventory/Report/' + selectedGraph().id }">Report</a>
+    </p>
 
 
 <script>
@@ -136,12 +138,18 @@ path.link.hidden {
     var dragline = svg.select(".dragline");
 
     var viewModel = new GraphViewModel();
-    ko.applyBindings(viewModel);
 
     var link = vis.selectAll(".link"),
         node = vis.selectAll(".node");
 
-    loadgraph();
+    $(function () {
+        $(document)
+            .keydown(onKeyDown)
+            .keyup(onKeyUp);
+
+        ko.applyBindings(viewModel);
+        viewModel.init();
+    });
 
     function zoom() {
         vis.attr("transform", "translate(" + d3.event.translate + ")scale(" + d3.event.scale + ")");
@@ -168,14 +176,6 @@ path.link.hidden {
         node.attr('transform', function (d) {
             return 'translate(' + d.x + ',' + d.y + ')';
         });
-    }
-
-    function loadgraph() {
-        var filter = $("#filter").val();
-        var uri = filter == "" ? "api/graph/node" : "api/graph/node?$filter=" + filter;
-        $.getJSON(uri)
-            .done(drawgraph)
-            .fail(function (error) { alert(error); });
     }
 
     function drawgraph(graphdata) {
@@ -258,7 +258,7 @@ path.link.hidden {
         function onNodeMouseUp(node) {
             if (viewModel.fromItem() && d3.event.ctrlKey) {
                 if (viewModel.fromItem() !== node) {
-                    createLink({ source: viewModel.fromItem(), target: node });
+                    createLink({ source: viewModel.fromItem(), target: node, GraphId:viewModel.selectedGraph().id });
                 }
             }
             viewModel.resetDragLine();
@@ -281,7 +281,7 @@ path.link.hidden {
     }
     
     function onCreate(point) {
-        var vertex=null;
+        var vertex={GraphId:viewModel.selectedGraph().id};
         if (viewModel.selectedItem() != null) {
             vertex = viewModel.selectedItem().toDto();
         }
@@ -388,14 +388,6 @@ path.link.hidden {
         redraw();
     }
 
-    $(function () {
-        $("#getgraph").click(loadgraph);
-
-        $(document)
-            .keydown(onKeyDown)
-            .keyup(onKeyUp);
-    });
-
     function CmdbViewModel(node) {
         var self = this;
         this.innerNode = node;
@@ -430,14 +422,37 @@ path.link.hidden {
     function GraphViewModel() {
         var self = this;
         var subs = [];
-        this.nodes = ko.observableArray();
-        this.links = ko.observableArray();
+        
+        self.graphs = ko.observableArray();
+        self.nodes = ko.observableArray();
+        self.links = ko.observableArray();
 
+        self.selectedGraph = ko.observable();
+        self.filter = ko.observable();
         this.selectedItem = ko.observable();
         this.selectedLink = ko.observable();
         this.canSave = ko.computed(function () { return self.selectedItem() != null; });
 
         this.fromItem = ko.observable();
+
+        self.init = function () {
+            $.getJSON("api/graph/graph")
+                .done(function (graphs) { self.graphs(graphs); })
+                .fail(function(error) {alert(error);});
+        };
+
+        this.selectGraph = function(graph) {
+            self.selectedGraph(graph);
+            self.loadGraph();
+        };
+
+        this.loadGraph = function () {
+            var filterUrl = self.filter() ? "&$filter=" + self.filter() : "";
+            var url = "api/graph/node?graphId=" + self.selectedGraph().id + filterUrl;
+            $.getJSON(url)
+            .done(drawgraph)
+            .fail(function (error) { alert(error); });
+        };
 
         this.update = function (graphdata) {
             ko.utils.arrayForEach(subs, function (sub) { sub.dispose(); });

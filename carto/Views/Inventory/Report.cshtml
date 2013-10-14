@@ -66,14 +66,21 @@
         }
     }
 
+    function loadGraph() {
+        var filter = $("#filter").val();
+        var uri = "/api/graph/node?graphId=" + @ViewBag.GraphId ;
+        if (filter != "") {
+            uri = uri + "&" + filter;
+        }
+
+        $.get(uri).done(onGraphLoaded).fail(function (data, error) { alert(error + data); });
+    }
+
     $(function () {
         $("#getgraph").click(function () {
             $("tr:gt(0)").remove();
-            var filter = $("#filter").val();
-            var uri = filter == "" ? "/api/graph/node" : "/api/graph/node?" + filter;
-            $.get(uri).done(onGraphLoaded).fail(function (data, error) { alert(error + data); });
         });
-        $.get("/api/graph/node").done(onGraphLoaded).fail(function (data, error) { alert(error + data); });
+        loadGraph();
     });
 </script>
 

@@ -23,6 +23,7 @@ namespace carto.Models
 
         public long Id { get; set; }
         public long Version { get; set; }
+        public long GraphId { get; set; }
 
         [Required]
         public string Name { get; set; }

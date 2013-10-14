@@ -208,11 +208,15 @@
       <DependentUpon>Global.asax</DependentUpon>
     </Compile>
     <Compile Include="Models\AccountModels.cs" />
+    <Compile Include="Models\CmdbGraph.cs" />
     <Compile Include="Models\CmdbRepository.cs" />
     <Compile Include="Models\CmdbAttributeDefinition.cs" />
     <Compile Include="Models\CmdbItem.cs" />
     <Compile Include="Models\CmdbItemCategory.cs" />
     <Compile Include="Models\CmdbDependency.cs" />
+    <Compile Include="Models\IRepositoryAdapter.cs" />
+    <Compile Include="Models\RepositoryAdapterMongoDb.cs" />
+    <Compile Include="Models\RepositoryAdapterStub.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>

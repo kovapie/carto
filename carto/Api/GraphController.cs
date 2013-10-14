@@ -8,10 +8,17 @@ namespace carto.Api
 {
     public class GraphController : ApiController
     {
-        [ActionName("node")]
-        public IQueryable<VertexDto<CmdbItem, CmdbDependency>> Get()
+        [HttpGet]
+        [ActionName("graph")]
+        public IEnumerable<CmdbGraph<CmdbItem, CmdbDependency>> GetGraph()
         {
-            var graph = CmdbRepository.Instance.Graph;
+            return CmdbRepository.Instance.ReadAll();
+        }
+
+        [ActionName("node")]
+        public IQueryable<VertexDto<CmdbItem, CmdbDependency>> Get(long graphId)
+        {
+            var graph = CmdbRepository.Instance.ReadGraph(graphId);
             return graph.Vertices.Select(v => new VertexDto<CmdbItem, CmdbDependency>(v, graph.OutEdges(v))).AsQueryable();
         }
 

@@ -15,8 +15,9 @@ namespace carto.Controllers
             return View();
         }
 
-        public ActionResult Report()
+        public ActionResult Report(long id)
         {
+            ViewBag.GraphId = id;
             return View();
         }
 
