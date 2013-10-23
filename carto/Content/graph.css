@@ -1,0 +1,69 @@
+﻿svg
+{
+    background-color: white;
+}
+
+    svg.ctrl
+    {
+        cursor: crosshair;
+    }
+
+.overlay
+{
+    fill: none;
+    pointer-events: all;
+}
+
+.node
+{
+    fill: orange;
+    cursor: pointer;
+}
+
+    .node.selected circle
+    {
+        stroke: orange;
+        stroke-width: 4px;
+    }
+
+path.link
+{
+    fill: none;
+    stroke: #999;
+    stroke-width: 4px;
+    marker-end: url(#end-arrow);
+    cursor: default;
+}
+
+    path.link.selected
+    {
+        stroke-dasharray: 10,2;
+    }
+
+    path.link.dragline
+    {
+        pointer-events: none;
+    }
+
+    path.link.hidden
+    {
+        stroke-width: 0;
+    }
+
+text.label
+{
+    fill: black;
+    /*text-anchor: middle;*/
+}
+
+.Desktop
+{
+    fill: blue;
+    opacity: 0.5;
+}
+
+.Service
+{
+    fill: green;
+    opacity: 0.5;
+}

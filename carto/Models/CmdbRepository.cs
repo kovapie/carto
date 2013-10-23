@@ -3,13 +3,15 @@ using System.Collections.Generic;
 using System.Configuration;
 using System.Linq;
 using System.Threading;
+using Microsoft.AspNet.SignalR;
+using Microsoft.AspNet.SignalR.Hubs;
 using MongoDB.Bson;
 
 namespace carto.Models
 {
     public class CmdbRepository
     {
-        private static CmdbRepository _instance;
+        private static Lazy<CmdbRepository> _instance;
         private readonly IRepositoryAdapter<CmdbGraph<CmdbItem, CmdbDependency>> _graphsAdapter;
         private readonly IRepositoryAdapter<CmdbItem> _nodesAdapter;
         private readonly IRepositoryAdapter<CmdbDependency> _edgesAdapter;
@@ -25,23 +27,25 @@ namespace carto.Models
                     bool useMongo;
                     if (Boolean.TryParse(ConfigurationManager.AppSettings["useMongo"], out useMongo) && useMongo)
                     {
-                        _instance = new CmdbRepository(new RepositoryAdapterMongoDb<CmdbGraph<CmdbItem, CmdbDependency>>("graphs"), new RepositoryAdapterMongoDb<CmdbItem>("nodes"), new RepositoryAdapterMongoDb<CmdbDependency>("edges"));
+                        _instance = new Lazy<CmdbRepository>(()=>new CmdbRepository(GlobalHost.ConnectionManager.GetHubContext<CartoHub>().Clients, new RepositoryAdapterMongoDb<CmdbGraph<CmdbItem, CmdbDependency>>("graphs"), new RepositoryAdapterMongoDb<CmdbItem>("nodes"), new RepositoryAdapterMongoDb<CmdbDependency>("edges")));
                     }
                     else
                     {
-                        _instance = new CmdbRepository(new RepositoryAdapterStub<CmdbGraph<CmdbItem, CmdbDependency>>(), new RepositoryAdapterStub<CmdbItem>(), new RepositoryAdapterStub<CmdbDependency>());
+                        _instance = new Lazy<CmdbRepository>(() => new CmdbRepository(GlobalHost.ConnectionManager.GetHubContext<CartoHub>().Clients, new RepositoryAdapterStub<CmdbGraph<CmdbItem, CmdbDependency>>(), new RepositoryAdapterStub<CmdbItem>(), new RepositoryAdapterStub<CmdbDependency>()));
                     }
                 }
-                return _instance;
+                return _instance.Value;
             }
         }
 
+        private IHubConnectionContext Clients { get; set; }
         public CmdbGraph<CmdbItem, CmdbDependency> Graph { get; private set; }
         public IDictionary<long, ICollection<CmdbAttributeDefinition>> AttributeDefinitions { get; set; }
         public IDictionary<long, CmdbItemCategory> Categories { get; set; }
 
-        private CmdbRepository(IRepositoryAdapter<CmdbGraph<CmdbItem, CmdbDependency>> graphsAdapter, IRepositoryAdapter<CmdbItem> nodesAdapter, IRepositoryAdapter<CmdbDependency> edgesAdapter)
+        private CmdbRepository(IHubConnectionContext clients, IRepositoryAdapter<CmdbGraph<CmdbItem, CmdbDependency>> graphsAdapter, IRepositoryAdapter<CmdbItem> nodesAdapter, IRepositoryAdapter<CmdbDependency> edgesAdapter)
         {
+            Clients = clients;
             _graphsAdapter = graphsAdapter;
             _nodesAdapter = nodesAdapter;
             _edgesAdapter = edgesAdapter;
@@ -102,6 +106,11 @@ namespace carto.Models
         //    _edgesAdapter.Create(RTS_SDS);
         //}
 
+        private void BroadcastNode(CmdbItem item)
+        {
+            Clients.All.updateNode(item);
+        }
+
         public CmdbItem Update(CmdbItem item)
         {
             var currentVertex = Graph.Vertices.FirstOrDefault(v => v.Id == item.Id && v.Version == item.Version);
@@ -128,6 +137,7 @@ namespace carto.Models
                 Graph.AddEdge(inEdge);
             }
             Graph.RemoveVertex(currentVertex);
+            BroadcastNode(item);
 
             return item;
         }
