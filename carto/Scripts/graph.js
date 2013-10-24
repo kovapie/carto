@@ -3,8 +3,8 @@
 
 var force = d3.layout.force()
     .size([width, height])
-    .linkDistance(150)
-    .charge(-500)
+    .linkDistance(100)
+    .charge(-1000)
     .on("tick", tick);
 
 var svg = d3.select("svg")
@@ -31,8 +31,22 @@ var link = vis.selectAll(".link"),
 $(function() {
     var pubsubhub = $.connection.cartoHub;
 
-    pubsubhub.client.updateNode = function(node) {
+    pubsubhub.client.createNode = function(node) {
+        viewModel.addNode(new CmdbViewModel(node));
+    };
+    pubsubhub.client.updateNode = function (node) {
         viewModel.updateNode(new CmdbViewModel(node));
+    };
+    pubsubhub.client.deleteNode = function (node) {
+        viewModel.deleteNode(new CmdbViewModel(node));
+    };
+    pubsubhub.client.createLink = function (link) {
+        link.source = ko.utils.arrayFirst(viewModel.nodes(), function (item) { return(item.id === link.SourceId); });
+        link.target = ko.utils.arrayFirst(viewModel.nodes(), function (item) { return(item.id === link.TargetId); });
+        viewModel.addLink(new LinkViewModel(link));
+    };
+    pubsubhub.client.deleteLink = function (link) {
+        viewModel.deleteLink(new LinkViewModel(link));
     };
 
     $(document)
@@ -382,13 +396,9 @@ function GraphViewModel() {
     };
 
     this.updateNode = function (node) {
-        var currentNode;
-        for (var i = 0; i < self.nodes().length; i++) {
-            if (self.nodes()[i].id === node.id) {
-                currentNode = self.nodes()[i];
-                break;
-            }
-        }
+        var currentNode = ko.utils.arrayFirst(self.nodes(), function (item) {
+            return (item.id === node.id);
+        });
         if (!currentNode) {
             self.addNode(node);
         } else if (currentNode.version < node.version) {
@@ -398,7 +408,7 @@ function GraphViewModel() {
             }, node, "change"));
             node.x = currentNode.x;
             node.y = currentNode.y;
-            this.nodes()[i] = node;
+            self.nodes.replace(currentNode, node);
             for (var j = 0; j < this.links().length; j++) {
                 var currentLink = this.links()[j];
                 if (currentLink.target === currentNode) {
@@ -417,40 +427,60 @@ function GraphViewModel() {
     };
 
     this.addNode = function (node) {
-        this.nodes.push(node);
-        subs.push(node.isDirty.subscribe(function () {
-            onSave(this);
-        }, node, "change"));
-        //viewModel.selectedItem(node);
-        //viewModel.selectedLink(null);
-        //redraw();
+        var currentNode = ko.utils.arrayFirst(self.nodes(), function (item) {
+            return (item.id === node.id);
+        });
+        if (!currentNode) {
+            this.nodes.push(node);
+            subs.push(node.isDirty.subscribe(function() {
+                onSave(this);
+            }, node, "change"));
+            //viewModel.selectedItem(node);
+            //viewModel.selectedLink(null);
+            redraw();
+        }
     };
 
     this.deleteNode = function (node) {
-        //TODO remove and dispose subscription for this node
-        self.links.remove(function(item) {
-            return (item.source === node || item.target === node);
+        //TODO remove and dispose subscription for this node (based on the target?)
+        var currentNode = ko.utils.arrayFirst(self.nodes(), function(item) {
+            return (item.id === node.id);
         });
-        self.nodes.remove(node);
-        if (viewModel.selectedItem() === node) {
-            viewModel.selectedItem(null);
+        if (currentNode) {
+            self.links.remove(function(item) {
+                return (item.source === currentNode || item.target === currentNode);
+            });
+            self.nodes.remove(currentNode);
+            if (viewModel.selectedItem() === node) {
+                viewModel.selectedItem(null);
+            }
+            redraw();
         }
-        redraw();
     };
 
     this.addLink = function (link) {
-        this.links.push(link);
-        viewModel.selectedLink(link);
-        viewModel.selectedItem(null);
-        redraw();
+        var currentLink = ko.utils.arrayFirst(self.links(), function (item) {
+            return (item.id === link.id);
+        });
+        if (!currentLink) {
+            this.links.push(link);
+            //viewModel.selectedLink(link);
+            //viewModel.selectedItem(null);
+            redraw();
+        }
     };
 
     this.deleteLink = function (link) {
-        self.links.remove(link);
-        if (viewModel.selectedLink() === link) {
-            viewModel.selectedLink(null);
+        var currentLink = ko.utils.arrayFirst(self.links(), function (item) {
+            return (item.id === link.id);
+        });
+        if (currentLink) {
+            self.links.remove(currentLink);
+            if (viewModel.selectedLink() === currentLink) {
+                viewModel.selectedLink(null);
+            }
+            redraw();
         }
-        redraw();
     };
 
     this.resetDragLine = function() {

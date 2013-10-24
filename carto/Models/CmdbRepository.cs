@@ -106,11 +106,6 @@ namespace carto.Models
         //    _edgesAdapter.Create(RTS_SDS);
         //}
 
-        private void BroadcastNode(CmdbItem item)
-        {
-            Clients.All.updateNode(item);
-        }
-
         public CmdbItem Update(CmdbItem item)
         {
             var currentVertex = Graph.Vertices.FirstOrDefault(v => v.Id == item.Id && v.Version == item.Version);
@@ -137,7 +132,7 @@ namespace carto.Models
                 Graph.AddEdge(inEdge);
             }
             Graph.RemoveVertex(currentVertex);
-            BroadcastNode(item);
+            Clients.All.updateNode(item);
 
             return item;
         }
@@ -152,7 +147,7 @@ namespace carto.Models
             _nodesAdapter.Create(newItem);
 
             Graph.AddVertex(newItem);
-
+            Clients.All.createNode(newItem);
 
             return newItem;
         }
@@ -173,9 +168,12 @@ namespace carto.Models
                 _edgesAdapter.Delete(edge.Id);
             }
             _nodesAdapter.Delete(id);
-            
-
-            return Graph.RemoveVertex(currentVertex);
+            var ret = Graph.RemoveVertex(currentVertex);
+            if (ret)
+            {
+                Clients.All.deleteNode(currentVertex);
+            }
+            return ret;
         }
 
         public CmdbDependency AddEdge(CmdbDependency edge)
@@ -187,6 +185,7 @@ namespace carto.Models
             _edgesAdapter.Create(edge);
 
             Graph.AddEdge(edge);
+            Clients.All.createLink(edge);
             return edge;
         }
 
@@ -195,7 +194,12 @@ namespace carto.Models
             _edgesAdapter.Delete(id);
 
             var edge = Graph.Edges.First(e => e.Id == id);
-            return Graph.RemoveEdge(edge);
+            var ret = Graph.RemoveEdge(edge);
+            if (ret)
+            {
+                Clients.All.deleteLink(edge);
+            }
+            return ret;
         }
 
         public IEnumerable<CmdbGraph<CmdbItem, CmdbDependency>> ReadAll()
