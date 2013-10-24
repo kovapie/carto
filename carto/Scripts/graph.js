@@ -322,11 +322,11 @@ function GraphViewModel() {
 
     self.selectedGraph = ko.observable();
     self.filter = ko.observable();
-    this.selectedItem = ko.observable();
-    this.selectedLink = ko.observable();
-    this.canSave = ko.computed(function () { return self.selectedItem() != null; });
+    self.selectedItem = ko.observable();
+    self.selectedLink = ko.observable();
+    self.canSave = ko.computed(function () { return self.selectedItem() != null; });
 
-    this.fromItem = ko.observable();
+    self.fromItem = ko.observable();
 
     self.init = function () {
         $.getJSON("api/graph/graph")
@@ -334,12 +334,12 @@ function GraphViewModel() {
             .fail(function(error) {alert(error);});
     };
 
-    this.selectGraph = function(graph) {
+    self.selectGraph = function (graph) {
         self.selectedGraph(graph);
         self.loadGraph();
     };
 
-    this.loadGraph = function () {
+    self.loadGraph = function () {
         var filterUrl = self.filter() ? "&$filter=" + self.filter() : "";
         var url = "api/graph/node?graphId=" + self.selectedGraph().id + filterUrl;
         $.getJSON(url)
@@ -347,12 +347,12 @@ function GraphViewModel() {
             .fail(function (error) { alert(error); });
     };
 
-    this.update = function (graphdata) {
+    self.update = function (graphdata) {
         ko.utils.arrayForEach(subs, function (sub) { sub.dispose(); });
-        this.nodes.removeAll();
-        this.links.removeAll();
-        this.selectedItem(null);
-        this.selectedLink(null);
+        self.nodes.removeAll();
+        self.links.removeAll();
+        self.selectedItem(null);
+        self.selectedLink(null);
         var alllinks = new Array();
         var nodeMap = {};
 
@@ -362,11 +362,10 @@ function GraphViewModel() {
             var edges = item.edges;
             var itemviewmodel = new CmdbViewModel(vertex);
             nodeMap[vertex.Id] = itemviewmodel;
-            this.nodes.push(itemviewmodel);
+            self.nodes.push(itemviewmodel);
             subs.push(itemviewmodel.isDirty.subscribe(function () {
-                onSave(itemviewmodel);
-                redraw();
-            }));
+                onSave(this);
+            }, itemviewmodel, "change"));
             for (var j = 0; j < edges.length; j++) {
                 alllinks.push(edges[j]);
             }
@@ -377,52 +376,54 @@ function GraphViewModel() {
             if (edge.TargetId in nodeMap) {
                 edge.target = nodeMap[edge.TargetId];
                 edge.source = nodeMap[edge.SourceId];
-                this.links.push(new LinkViewModel(edge));
+                self.links.push(new LinkViewModel(edge));
             }
         }
     };
 
-    this.updateNode = function(node) {
-        for (var i = 0; i < this.nodes().length; i++) {
-            var currentNode = this.nodes()[i];
-            if (currentNode.id === node.id && currentNode.version < node.version) {
-                //TODO remove and dispose subscription to old node
-                subs.push(node.isDirty.subscribe(function () {
-                    onSave(node);
-                    redraw();
-                }));
-                node.x = currentNode.x;
-                node.y = currentNode.y;
-                this.nodes()[i] = node;
-                for (var j = 0; j < this.links().length; j++) {
-                    var currentLink = this.links()[j];
-                    if (currentLink.target === currentNode) {
-                        currentLink.target = node;                            
-                    }
-                    if (currentLink.source === currentNode) {
-                        currentLink.source = node;
-                    }
-                }
-                if (self.selectedItem() === currentNode) {
-                    self.selectedItem(node);
-                    self.selectedLink(null);
-                }
-                redraw();
-                return true;
-            }  
+    this.updateNode = function (node) {
+        var currentNode;
+        for (var i = 0; i < self.nodes().length; i++) {
+            if (self.nodes()[i].id === node.id) {
+                currentNode = self.nodes()[i];
+                break;
+            }
         }
-        return false;
+        if (!currentNode) {
+            self.addNode(node);
+        } else if (currentNode.version < node.version) {
+            //TODO remove and dispose subscription to old node
+            subs.push(node.isDirty.subscribe(function () {
+                onSave(this);
+            }, node, "change"));
+            node.x = currentNode.x;
+            node.y = currentNode.y;
+            this.nodes()[i] = node;
+            for (var j = 0; j < this.links().length; j++) {
+                var currentLink = this.links()[j];
+                if (currentLink.target === currentNode) {
+                    currentLink.target = node;
+                }
+                if (currentLink.source === currentNode) {
+                    currentLink.source = node;
+                }
+            }
+            if (self.selectedItem() === currentNode) {
+                self.selectedItem(node);
+                self.selectedLink(null);
+            }
+            redraw();
+        }
     };
 
     this.addNode = function (node) {
         this.nodes.push(node);
         subs.push(node.isDirty.subscribe(function () {
-            onSave(node);
-            redraw();
-        }));
-        viewModel.selectedItem(node);
-        viewModel.selectedLink(null);
-        redraw();
+            onSave(this);
+        }, node, "change"));
+        //viewModel.selectedItem(node);
+        //viewModel.selectedLink(null);
+        //redraw();
     };
 
     this.deleteNode = function (node) {
