@@ -3,8 +3,9 @@
 
 var force = d3.layout.force()
     .size([width, height])
-    .linkDistance(100)
+    .linkDistance(80)
     .charge(-1000)
+    .gravity(0.2)
     .on("tick", tick);
 
 var svg = d3.select("svg")
@@ -29,6 +30,13 @@ var link = vis.selectAll(".link"),
     node = vis.selectAll(".node");
 
 $(function() {
+    $(document)
+        .keydown(onKeyDown)
+        .keyup(onKeyUp);
+
+    ko.applyBindings(viewModel);
+    viewModel.init();
+
     var pubsubhub = $.connection.cartoHub;
 
     pubsubhub.client.createNode = function(node) {
@@ -49,13 +57,36 @@ $(function() {
         viewModel.deleteLink(new LinkViewModel(link));
     };
 
-    $(document)
-        .keydown(onKeyDown)
-        .keyup(onKeyUp);
-
-    ko.applyBindings(viewModel);
-    viewModel.init();
     $.connection.hub.start();
+    
+    d3.select("#charge").on("change",function() {
+        d3.select("#charge_label").text("Charge: " + d3.format("f")(this.value));
+        force.charge(-this.value).start();
+    });
+    d3.select("#gravity").on("change", function () {
+        d3.select("#gravity_label").text("Gravity: " + d3.format("g")(this.value));
+        force.gravity(this.value).start();
+    });
+    d3.select("#distance").on("change", function () {
+        d3.select("#distance_label").text("Distance: " + d3.format("f")(this.value));
+        force.linkDistance(this.value).start();
+    });
+    d3.select("#strength").on("change", function () {
+        d3.select("#strength_label").text("Strength: " + d3.format("g")(this.value));
+        force.linkStrength(this.value).start();
+    });
+    d3.select("#friction").on("change", function () {
+        d3.select("#friction_label").text("Friction: " + d3.format("g")(this.value));
+        force.friction(this.value).start();
+    });
+
+    $("#options").hover(function () {
+        $(this).animate({ width: "150px", height: "100%" });
+        $(this).children().show();
+    }, function () {
+        $(this).animate({ width: "40px", height: "40px" });
+        $(this).children().hide();
+    });
 });
 
 function zoom() {

@@ -22,7 +22,7 @@
 
     .node.selected circle
     {
-        stroke: orange;
+        stroke: navy;
         stroke-width: 4px;
     }
 
@@ -66,4 +66,10 @@ text.label
 {
     fill: green;
     opacity: 0.5;
+}
+
+.panel {
+    background-color: greenyellow;
+    width: 40px;
+    height: 40px;
 }

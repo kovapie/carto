@@ -7,10 +7,36 @@
 <link href="~/Content/graph.css" rel="stylesheet"/>
 
 <ul data-bind="foreach: graphs">
-    <li>
-        <button data-bind="title: description, text: name, click: $root.selectGraph"></button>
-    </li>
+     <button data-bind="title: description, text: name, click: $root.selectGraph"></button>
 </ul>
+
+<p data-bind="if: selectedGraph" style="float:right">
+<a data-bind="attr: { href: '/Inventory/Report/' + selectedGraph().id }">Report</a>
+</p>
+
+<div id="options" class="panel" style="float:left">
+    <div style="margin: 10px" hidden>
+    <span id="charge_label">Charge: </span>
+    <br/>
+    <input id="charge" type="range" min="0" max="3000" step="10" value="1000" style="width: 100%"/>
+    <br/>
+    <span id="gravity_label">Gravity: </span>
+    <br/>
+    <input id="gravity" type="range" min="0" max="1" step="0.1" value="0.2" style="width: 100%"/>
+    <br/>
+    <span id="distance_label">Distance: </span>
+    <br/>
+    <input id="distance" type="range" min="0" max="200" step="1" value="80" style="width: 100%"/>
+    <br/>
+    <span id="strength_label">Strength: </span>
+    <br/>
+    <input id="strength" type="range" min="0" max="1" step="0.1" value="1" style="width: 100%"/>
+    <br/>
+    <span id="friction_label">Friction: </span>
+    <br/>
+    <input id="friction" type="range" min="0" max="1" step="0.1" value="0.9" style="width: 100%"/>
+    </div>
+</div>
 
 <div id="container" style="width: 100%">
     <button data-bind="click: loadGraph">Filter</button>
@@ -40,10 +66,6 @@
     <p>Target:
         <span data-bind="text: selectedLink().target.name" /></p>
 </aside>
-
-<p data-bind="if: selectedGraph">
-<a data-bind="attr: { href: '/Inventory/Report/' + selectedGraph().id }">Report</a>
-    </p>
 
     <script src="/Scripts/jquery.signalR-2.0.0.js"></script>
     <script src="/signalr/hubs"></script>
