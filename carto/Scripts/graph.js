@@ -80,12 +80,10 @@ $(function() {
         force.friction(this.value).start();
     });
 
-    $("#options").hover(function () {
-        $(this).animate({ width: "150px", height: "100%" });
-        $(this).children().show();
+    $("#options_trigger").hover(function () {
+        $("#options").fadeIn();
     }, function () {
-        $(this).animate({ width: "40px", height: "40px" });
-        $(this).children().hide();
+        $("#options").fadeOut();
     });
 });
 
