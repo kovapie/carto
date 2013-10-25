@@ -5,7 +5,6 @@ using System.Linq;
 using System.Threading;
 using Microsoft.AspNet.SignalR;
 using Microsoft.AspNet.SignalR.Hubs;
-using MongoDB.Bson;
 
 namespace carto.Models
 {
@@ -15,6 +14,7 @@ namespace carto.Models
         private readonly IRepositoryAdapter<CmdbGraph<CmdbItem, CmdbDependency>> _graphsAdapter;
         private readonly IRepositoryAdapter<CmdbItem> _nodesAdapter;
         private readonly IRepositoryAdapter<CmdbDependency> _edgesAdapter;
+        private readonly object _repositoryLock = new object();
         private long _edgeNextSequenceId;
         private long _nodeNextSequenceId;
 
@@ -108,33 +108,40 @@ namespace carto.Models
 
         public CmdbItem Update(CmdbItem item)
         {
-            var currentVertex = Graph.Vertices.FirstOrDefault(v => v.Id == item.Id && v.Version == item.Version);
-            if (currentVertex == null)
+            CmdbItem savedItem;
+            lock (_repositoryLock)
             {
-                throw new Exception();
+                    var currentVertex = Graph.Vertices.FirstOrDefault(v => v.Id == item.Id && v.Version == item.Version);
+                    if (currentVertex == null)
+                    {
+                        throw new Exception();
+                    }
+
+                    item.Version = item.Version + 1;
+                    //TODO add try/catch to protect the lock
+                    savedItem = _nodesAdapter.Update(item);
+
+                    //swap vertices
+                    Graph.AddVertex(savedItem);
+                    var outEdges = Graph.OutEdges(currentVertex);
+                    var inEdges = Graph.InEdges(currentVertex);
+                    foreach (var outEdge in outEdges)
+                    {
+                        outEdge.Source = savedItem;
+                        Graph.AddEdge(outEdge);
+                    }
+                    foreach (var inEdge in inEdges)
+                    {
+                        inEdge.Target = savedItem;
+                        Graph.AddEdge(inEdge);
+                    }
+                    Graph.RemoveVertex(currentVertex);
             }
-            item.Version = item.Version + 1;
-
-            _nodesAdapter.Update(item);
-
-            //swap vertices
-            Graph.AddVertex(item);
-            var outEdges = Graph.OutEdges(currentVertex);
-            var inEdges = Graph.InEdges(currentVertex);
-            foreach (var outEdge in outEdges)
+            if (savedItem != null)
             {
-                outEdge.Source = item;
-                Graph.AddEdge(outEdge);
+                Clients.All.updateNode(savedItem);
             }
-            foreach (var inEdge in inEdges)
-            {
-                inEdge.Target = item;
-                Graph.AddEdge(inEdge);
-            }
-            Graph.RemoveVertex(currentVertex);
-            Clients.All.updateNode(item);
-
-            return item;
+            return savedItem;
         }
 
         public CmdbItem Create(CmdbItem item)
@@ -142,33 +149,47 @@ namespace carto.Models
             var nextId = Interlocked.Increment(ref _nodeNextSequenceId);
             var category = (item != null &&  item.Category != null && Categories.ContainsKey(item.Category.Id)) ? item.Category : Categories.First().Value;
             var name = (item != null && item.Name != null) ? item.Name : string.Empty;
-            var newItem = new CmdbItem(category, nextId, name) {GraphId = item.GraphId};
+            var newItem = new CmdbItem(category, nextId, name) {GraphId = item == null ? Graph.Id : item.GraphId};
 
-            _nodesAdapter.Create(newItem);
+            CmdbItem savedItem;
+            lock (_repositoryLock)
+            {
+                savedItem = _nodesAdapter.Create(newItem);
+                Graph.AddVertex(newItem);
+            }
+            if (savedItem != null)
+            {
+                Clients.All.createNode(newItem);
+            }
 
-            Graph.AddVertex(newItem);
-            Clients.All.createNode(newItem);
-
-            return newItem;
+            return savedItem;
         }
 
         public bool Delete(long id)
         {
-            //TODO archive in a nodes_archive collection?            
-            var currentVertex = Graph.Vertices.FirstOrDefault(v => v.Id == id);
-            var inEdges = Graph.InEdges(currentVertex);
-            var outEdges = Graph.OutEdges(currentVertex);
+            //TODO archive in a nodes_archive collection?
+            CmdbItem currentVertex;
+            bool ret;
+            lock (_repositoryLock)
+            {
+                currentVertex = Graph.Vertices.FirstOrDefault(v => v.Id == id);
+                var inEdges = Graph.InEdges(currentVertex);
+                var outEdges = Graph.OutEdges(currentVertex);
 
-            foreach (var edge in inEdges)
-            {
-                _edgesAdapter.Delete(edge.Id);
+                foreach (var edge in inEdges)
+                {
+                    _edgesAdapter.Delete(edge.Id);
+                }
+                foreach (var edge in outEdges)
+                {
+                    _edgesAdapter.Delete(edge.Id);
+                }
+                ret = _nodesAdapter.Delete(id);
+                if (ret)
+                {
+                    ret = Graph.RemoveVertex(currentVertex);
+                }
             }
-            foreach (var edge in outEdges)
-            {
-                _edgesAdapter.Delete(edge.Id);
-            }
-            _nodesAdapter.Delete(id);
-            var ret = Graph.RemoveVertex(currentVertex);
             if (ret)
             {
                 Clients.All.deleteNode(currentVertex);
@@ -179,22 +200,36 @@ namespace carto.Models
         public CmdbDependency AddEdge(CmdbDependency edge)
         {
             edge.Id = Interlocked.Increment(ref _edgeNextSequenceId);
-            edge.Source = Graph.Vertices.First(v => v.Id == edge.SourceId);
-            edge.Target = Graph.Vertices.First(v => v.Id == edge.TargetId);
+            CmdbDependency savedItem;
+            lock (_repositoryLock)
+            {
+                edge.Source = Graph.Vertices.First(v => v.Id == edge.SourceId);
+                edge.Target = Graph.Vertices.First(v => v.Id == edge.TargetId);
 
-            _edgesAdapter.Create(edge);
+                savedItem = _edgesAdapter.Create(edge);
 
-            Graph.AddEdge(edge);
-            Clients.All.createLink(edge);
-            return edge;
+                Graph.AddEdge(savedItem);
+            }
+            if (savedItem != null)
+            {
+                Clients.All.createLink(savedItem);
+            }
+            return savedItem;
         }
 
         public bool DeleteLink(long id)
         {
-            _edgesAdapter.Delete(id);
-
-            var edge = Graph.Edges.First(e => e.Id == id);
-            var ret = Graph.RemoveEdge(edge);
+            CmdbDependency edge;
+            bool ret;
+            lock (_repositoryLock)
+            {
+                edge = Graph.Edges.First(e => e.Id == id);
+                ret = _edgesAdapter.Delete(id);
+                if (ret)
+                {
+                    ret = Graph.RemoveEdge(edge);
+                }
+            }
             if (ret)
             {
                 Clients.All.deleteLink(edge);
@@ -209,27 +244,30 @@ namespace carto.Models
 
         public CmdbGraph<CmdbItem, CmdbDependency> ReadGraph(long graphId)
         {
-            if (Graph == null || Graph.Id != graphId)
+            lock (_repositoryLock)
             {
-                _nodeNextSequenceId = _nodesAdapter.ReadMaxId() + 1;
-                _edgeNextSequenceId = _edgesAdapter.ReadMaxId() + 1;
-
-                var g = _graphsAdapter.Read(graphId);
-
-                var nodes = _nodesAdapter.ReadAll(graphId).ToList();
-                var edges = _edgesAdapter.ReadAll(graphId).ToList();
-
-                g.AddVertexRange(nodes);
-
-                var nodesMap = nodes.ToDictionary(n => n.Id);
-                foreach (var edge in edges)
+                if (Graph == null || Graph.Id != graphId)
                 {
-                    edge.Source = nodesMap[edge.SourceId];
-                    edge.Target = nodesMap[edge.TargetId];
-                }
-                g.AddEdgeRange(edges);
+                    _nodeNextSequenceId = _nodesAdapter.ReadMaxId() + 1;
+                    _edgeNextSequenceId = _edgesAdapter.ReadMaxId() + 1;
 
-                Graph = g;
+                    var g = _graphsAdapter.Read(graphId);
+
+                    var nodes = _nodesAdapter.ReadAll(graphId).ToList();
+                    var edges = _edgesAdapter.ReadAll(graphId).ToList();
+
+                    g.AddVertexRange(nodes);
+
+                    var nodesMap = nodes.ToDictionary(n => n.Id);
+                    foreach (var edge in edges)
+                    {
+                        edge.Source = nodesMap[edge.SourceId];
+                        edge.Target = nodesMap[edge.TargetId];
+                    }
+                    g.AddEdgeRange(edges);
+
+                    Graph = g;
+                }
             }
             return Graph;
         }
