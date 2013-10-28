@@ -1,6 +1,13 @@
 ﻿var width = 960,
     height = 500;
 
+var svg = d3.select("svg")
+    .attr("width", "100%")
+    .attr("height", height)
+    .on("mousedown", onMouseDown)
+    .on("mouseup", onMouseUp)
+    .on("mousemove", onMouseMove);
+
 var force = d3.layout.force()
     .size([width, height])
     .linkDistance(80)
@@ -8,20 +15,10 @@ var force = d3.layout.force()
     .gravity(0.2)
     .on("tick", tick);
 
-var svg = d3.select("svg")
-    .attr("width", width)
-    .attr("height", height)
-    .on("mousedown", onMouseDown)
-    .on("mouseup", onMouseUp)
-    .on("mousemove", onMouseMove);
-
-svg.append("rect")
-    .attr("class", "overlay")
-    .attr("width", width)
-    .attr("height", height)
-    .call(d3.behavior.zoom().scaleExtent([0.5, 2]).on("zoom", zoom));
+var zoom = d3.behavior.zoom().scaleExtent([0.5, 2]).on("zoom", onZoom);
+zoom(d3.select(".overlay"));
     
-var vis = svg.append("g");
+var vis = d3.select(".vis");
 var dragline = svg.select(".dragline");
 
 var viewModel = new GraphViewModel();
@@ -87,7 +84,7 @@ $(function() {
     });
 });
 
-function zoom() {
+function onZoom() {
     vis.attr("transform", "translate(" + d3.event.translate + ")scale(" + d3.event.scale + ")");
 }
 
@@ -184,9 +181,13 @@ function redraw() {
     function onNodeMouseDown(node) {
         if (d3.event.ctrlKey) {
             viewModel.fromItem(node);
+            var scale = zoom.scale();
+            var translate = zoom.translate();
+            var fromX = viewModel.fromItem().x * scale + translate[0];
+            var fromY = viewModel.fromItem().y * scale + translate[1];
             dragline
                 .classed('hidden', false)
-                .attr('d', 'M' + viewModel.fromItem().x + ',' + viewModel.fromItem().y + 'L' + viewModel.fromItem().x + ',' + viewModel.fromItem().y);
+                .attr('d', 'M' + fromX + ',' + fromY + 'L' + fromX + ',' + fromY);
             redraw();
         }
     }
@@ -228,8 +229,10 @@ function onCreate(point) {
         data: JSON.stringify(vertex),
     }).done(function (node) {
         var nodevm = new CmdbViewModel(node);
-        nodevm.x = point[0];
-        nodevm.y = point[1];
+        var scale = zoom.scale();
+        var translate = zoom.translate();
+        nodevm.x = (point[0] - translate[0]) /scale;
+        nodevm.y = (point[1] - translate[1]) /scale;
         viewModel.addNode(nodevm);
     });
 }
@@ -320,7 +323,11 @@ function onMouseUp() {
     
 function onMouseMove() {
     if (!viewModel.fromItem()) return;
-    dragline.attr('d', 'M' + viewModel.fromItem().x + ',' + viewModel.fromItem().y + 'L' + d3.mouse(this)[0] + ',' + d3.mouse(this)[1]);
+    var scale = zoom.scale();
+    var translate = zoom.translate();
+    var fromX = viewModel.fromItem().x * scale + translate[0];
+    var fromY = viewModel.fromItem().y * scale + translate[1];
+    dragline.attr('d', 'M' + fromX + ',' + fromY + 'L' + d3.mouse(this)[0] + ',' + d3.mouse(this)[1]);
     redraw();
 }
 
