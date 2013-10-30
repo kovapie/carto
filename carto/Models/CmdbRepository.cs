@@ -31,7 +31,7 @@ namespace carto.Models
                     }
                     else
                     {
-                        _instance = new Lazy<CmdbRepository>(() => new CmdbRepository(GlobalHost.ConnectionManager.GetHubContext<CartoHub>().Clients, new RepositoryAdapterStub<CmdbGraph<CmdbItem, CmdbDependency>>(g => g.Id, new List<CmdbGraph<CmdbItem, CmdbDependency>> { new CmdbGraph<CmdbItem, CmdbDependency>{Name="test", Id=1, Version=1} }), new RepositoryAdapterStub<CmdbItem>(n => n.Id, new List<CmdbItem>()), new RepositoryAdapterStub<CmdbDependency>(l => l.Id, new List<CmdbDependency>())));
+                        _instance = new Lazy<CmdbRepository>(() => new CmdbRepository(GlobalHost.ConnectionManager.GetHubContext<CartoHub>().Clients, new RepositoryAdapterStub<CmdbGraph<CmdbItem, CmdbDependency>>(g => g.Id, new List<CmdbGraph<CmdbItem, CmdbDependency>> { new CmdbGraph<CmdbItem, CmdbDependency> { Name = "graph 1", Id = 1, Version = 1 }, new CmdbGraph<CmdbItem, CmdbDependency> { Name = "graph 2", Id = 2, Version = 1 } }), new RepositoryAdapterStub<CmdbItem>(n => n.Id, new List<CmdbItem>()), new RepositoryAdapterStub<CmdbDependency>(l => l.Id, new List<CmdbDependency>())));
                     }
                 }
                 return _instance.Value;

@@ -6,7 +6,7 @@
 
 <link href="~/Content/graph.css" rel="stylesheet"/>
 
-<p data-bind="if: selectedGraph" style="float:right">
+<p data-bind="if: selectedGraph" style="float:right;margin:0">
 <a data-bind="attr: { href: '/Inventory/Report/' + selectedGraph().id }">Report</a>
 </p>
 
@@ -38,14 +38,14 @@
             <input id="friction" type="range" min="0" max="1" step="0.1" value="0.9" style="width: 80%"/>
         </div>
     </div>
-<section data-bind="if: selectedItem" style="width: auto;position: absolute;margin-top: 5px;background-color: lightgreen">
+<section data-bind="if: selectedItem" style="position: absolute;background-color: lightgreen">
     <p> Id: <!--ko text: selectedItem().id--><!--/ko--> -v.<!--ko text: selectedItem().version--><!--/ko-->  </p>
     <p>Name:
-        <input data-bind="value: selectedItem().name" style="width: 100%" /></p>
+        <input data-bind="hasfocus:true, value: selectedItem().name" style="width: auto" /></p>
     <p>Description:
-        <input data-bind="value: selectedItem().description" style="width: 100%"/></p>
+        <input data-bind="value: selectedItem().description" style="width: auto"/></p>
     </section>
-<section data-bind="if: selectedLink" style="width: auto;position: absolute;margin-top: 5px;background-color: lightgreen">
+<section data-bind="if: selectedLink" style="position: absolute;background-color: lightgreen">
     <p> Id: <!--ko text: selectedLink().id--><!--/ko--> -v.<!--ko text: selectedLink().version--><!--/ko-->  </p>
     <p>Source:
         <span data-bind="text: selectedLink().source.name" /></p>
@@ -64,8 +64,10 @@
     </svg>
 </section>
 
-<ul data-bind="foreach: graphs" style="float: left">
-    <button data-bind="title: description, text: name, click: $root.selectGraph"></button>
+<ul data-bind="foreach: graphs" style="list-style:none;margin:0px">
+    <li>
+    <button data-bind="title: description, text: name, click: $root.selectGraph" style="float:left"></button>
+        </li>
 </ul>
 
 <script src="/Scripts/jquery.signalR-2.0.0.js"></script>

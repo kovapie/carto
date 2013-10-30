@@ -162,8 +162,7 @@ function redraw() {
         if (n === viewModel.selectedItem()) {
             viewModel.selectedItem(null);
         } else {
-            viewModel.selectedItem(n);
-            viewModel.selectedLink(null);
+            viewModel.selectNode(n);
         }
         redraw();
     }
@@ -172,8 +171,7 @@ function redraw() {
         if (l === viewModel.selectedLink()) {
             viewModel.selectedLink(null);
         } else {
-            viewModel.selectedLink(l);
-            viewModel.selectedItem(null);
+            viewModel.selectLink(l);
         }
         redraw();
     }
@@ -233,7 +231,7 @@ function onCreate(point) {
         var translate = zoom.translate();
         nodevm.x = (point[0] - translate[0]) /scale;
         nodevm.y = (point[1] - translate[1]) /scale;
-        viewModel.addNode(nodevm);
+        viewModel.addNode(nodevm,true);
     });
 }
     
@@ -259,7 +257,7 @@ function createLink(link) {
         edge.source = link.source;
         edge.target = link.target;
         var linkvm = new LinkViewModel(edge);            
-        viewModel.addLink(linkvm);
+        viewModel.addLink(linkvm,true);
     });
 }
 
@@ -293,7 +291,7 @@ function onKeyDown(event) {
             break;
         case 45: //ins
             if (event.ctrlKey) {
-                onCreate({});
+                onCreate({},true);
             }
             break;
         case 109: //num -
@@ -313,7 +311,7 @@ function onKeyUp(event) {
 
 function onMouseDown() {
     if (d3.event.ctrlKey && !viewModel.fromItem()) {
-        onCreate(d3.mouse(this));
+        onCreate(d3.mouse(this),true);
     }
 }
 
@@ -431,6 +429,17 @@ function GraphViewModel() {
         }
     };
 
+    self.selectNode = function (node) {
+        self.selectedLink(null);
+        self.selectedItem(node);
+//        self.isEditing(true);
+    }
+
+    self.selectLink = function (link) {
+        self.selectedItem(null);
+        self.selectedLink(link);
+    }
+
     this.updateNode = function (node) {
         var currentNode = ko.utils.arrayFirst(self.nodes(), function (item) {
             return (item.id === node.id);
@@ -455,14 +464,13 @@ function GraphViewModel() {
                 }
             }
             if (self.selectedItem() === currentNode) {
-                self.selectedItem(node);
-                self.selectedLink(null);
+                self.selectNode(node);
             }
             redraw();
         }
     };
 
-    this.addNode = function (node) {
+    this.addNode = function (node,isSelected) {
         var currentNode = ko.utils.arrayFirst(self.nodes(), function (item) {
             return (item.id === node.id);
         });
@@ -471,8 +479,9 @@ function GraphViewModel() {
             subs.push(node.isDirty.subscribe(function() {
                 onSave(this);
             }, node, "change"));
-            //viewModel.selectedItem(node);
-            //viewModel.selectedLink(null);
+            if (isSelected) {
+                self.selectNode(node);
+            }
             redraw();
         }
     };
@@ -494,14 +503,15 @@ function GraphViewModel() {
         }
     };
 
-    this.addLink = function (link) {
+    this.addLink = function (link,isSelected) {
         var currentLink = ko.utils.arrayFirst(self.links(), function (item) {
             return (item.id === link.id);
         });
         if (!currentLink) {
-            this.links.push(link);
-            //viewModel.selectedLink(link);
-            //viewModel.selectedItem(null);
+            self.links.push(link);
+            if (isSelected) {
+                self.selectLink(link);
+            }
             redraw();
         }
     };
