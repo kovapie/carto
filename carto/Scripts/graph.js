@@ -133,13 +133,14 @@ function redraw() {
     node.exit().remove();
 
     var g = node.enter().append("g").attr("class", "node");
-    g.append("circle").attr("class", function (d) { return d.innerNode.Attributes[1]; }).attr("r", 12);
+    g.append("circle").attr("r", 12);
     g.append("text").attr("class", "label");
     g.append("title");
     node.classed("selected", function (d) {
         return d === viewModel.selectedItem();
     });
-
+    node.classed("Desktop", function (d) { return d.applicationType() === "Desktop"; });
+    node.classed("Service", function (d) { return d.applicationType() === "Service"; });
     node.select("text").text(function (d) { return d.name(); });
     node.select("title").text(function (d) { return d.description(); });
 
@@ -331,17 +332,34 @@ function onMouseMove() {
 
 function CmdbViewModel(node) {
     var self = this;
-    this.innerNode = node;
-    this.id = node.Id;
-    this.version = node.Version;
-    this.name = ko.observable(node.Name);
-    this.description = ko.observable(node.Description);
-    this.isDirty = ko.computed(function () { return { name: self.name(), description: self.description() }; });
+    self.innerNode = node;
+    self.id = node.Id;
+    self.version = node.Version;
+    self.name = ko.observable(node.Name);
+    self.description = ko.observable(node.Description);
+    self.applicationType = ko.observable(node.Attributes[1]);
+    self.criticality = ko.observable(node.Attributes[8]);
+    self.language = ko.observableArray(node.Attributes[2]);
+    self.operatingSystem = ko.observable(node.Attributes[3]);
+    self.itOwner = ko.observable( node.Attributes[4]);
+    self.businessOwner = ko.observable(node.Attributes[6]);
+    self.url = ko.observable(node.Attributes[5]);
+    self.isVendor = ko.observable(node.Attributes[9]);
 
-    this.toDto = function() {
-        this.innerNode.Name = this.name();
-        this.innerNode.Description = this.description();
-        return this.innerNode;
+    self.isDirty = ko.computed(function () { return { name: self.name(), description: self.description(), applicationType: self.applicationType(), criticality: self.criticality(), language: self.language(), operatingSystem: self.operatingSystem(), itOwner: self.itOwner(), businessOwner: self.businessOwner(), url: self.url(), isVendor:self.isVendor() }; });
+
+    self.toDto = function () {
+        self.innerNode.Name = self.name();
+        self.innerNode.Description = self.description();
+        self.innerNode.Attributes[1] = self.applicationType();
+        //self.innerNode.Attributes[2] = self.language(); //got deserialized into Newtonsolft Jcontainer and mess with mongodb - TODO: fix the Web API deserialization on the server side
+        self.innerNode.Attributes[3] = self.operatingSystem();
+        self.innerNode.Attributes[4] = self.itOwner();
+        self.innerNode.Attributes[5] = self.url();
+        self.innerNode.Attributes[6] = self.businessOwner();
+        self.innerNode.Attributes[8] = self.criticality();
+        self.innerNode.Attributes[9] = self.isVendor();
+        return self.innerNode;
     };
 }
     
@@ -429,16 +447,15 @@ function GraphViewModel() {
         }
     };
 
-    self.selectNode = function (node) {
+    self.selectNode = function(node) {
         self.selectedLink(null);
         self.selectedItem(node);
-//        self.isEditing(true);
-    }
+    };
 
-    self.selectLink = function (link) {
+    self.selectLink = function(link) {
         self.selectedItem(null);
         self.selectedLink(link);
-    }
+    };
 
     this.updateNode = function (node) {
         var currentNode = ko.utils.arrayFirst(self.nodes(), function (item) {

@@ -20,7 +20,7 @@
     cursor: pointer;
 }
 
-    .node.selected circle
+    .node.selected > circle
     {
         stroke: navy;
         stroke-width: 4px;
@@ -53,19 +53,18 @@ path.link
 text.label
 {
     fill: black;
+    font-weight: normal;
     /*text-anchor: middle;*/
 }
 
-.Desktop
+.Desktop > circle
 {
-    fill: blue;
-    opacity: 0.5;
+    fill: lightblue;
 }
 
-.Service
+.Service > circle
 {
-    fill: green;
-    opacity: 0.5;
+    fill: lightgreen;
 }
 
 .panel {

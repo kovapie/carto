@@ -4,73 +4,131 @@
     ViewBag.Title = "Application Inventory";
 }
 
-<link href="~/Content/graph.css" rel="stylesheet"/>
+<link href="~/Content/graph.css" rel="stylesheet" />
 
-<p data-bind="if: selectedGraph" style="float:right;margin:0">
-<a data-bind="attr: { href: '/Inventory/Report/' + selectedGraph().id }">Report</a>
+<p data-bind="if: selectedGraph" style="float: right; margin: 0">
+    <a data-bind="attr: { href: '/Inventory/Report/' + selectedGraph().id }">Report</a>
 </p>
 
 <section id="container">
     <button data-bind="click: loadGraph">Filter</button>
     <input type="text" data-bind="value: filter" />
-    <div id="options_trigger" class="panel" >
-        <span >Physics</span>
-        <div id="options" style="width:150px;margin:10px" hidden>
-            <br/>
+    <div id="options_trigger" class="panel">
+        <span>Physics</span>
+        <div id="options" style="width: 150px; margin: 10px" hidden>
+            <br />
             <span id="charge_label">Charge: </span>
-            <br/>
-            <input id="charge" type="range" min="0" max="3000" step="10" value="1000" style="width: 80%"/>
-            <br/>
+            <br />
+            <input id="charge" type="range" min="0" max="3000" step="10" value="1000" style="width: 80%" />
+            <br />
             <span id="gravity_label">Gravity: </span>
-            <br/>
-            <input id="gravity" type="range" min="0" max="1" step="0.1" value="0.2" style="width: 80%"/>
-            <br/>
+            <br />
+            <input id="gravity" type="range" min="0" max="1" step="0.1" value="0.2" style="width: 80%" />
+            <br />
             <span id="distance_label">Distance: </span>
-            <br/>
-            <input id="distance" type="range" min="0" max="200" step="1" value="80" style="width: 80%"/>
-            <br/>
+            <br />
+            <input id="distance" type="range" min="0" max="200" step="1" value="80" style="width: 80%" />
+            <br />
             <span id="strength_label">Strength: </span>
-            <br/>
-            <input id="strength" type="range" min="0" max="1" step="0.1" value="1" style="width: 80%"/>
-            <br/>
+            <br />
+            <input id="strength" type="range" min="0" max="1" step="0.1" value="1" style="width: 80%" />
+            <br />
             <span id="friction_label">Friction: </span>
-            <br/>
-            <input id="friction" type="range" min="0" max="1" step="0.1" value="0.9" style="width: 80%"/>
+            <br />
+            <input id="friction" type="range" min="0" max="1" step="0.1" value="0.9" style="width: 80%" />
         </div>
     </div>
-<section data-bind="if: selectedItem" style="position: absolute;background-color: lightgreen">
-    <p> Id: <!--ko text: selectedItem().id--><!--/ko--> -v.<!--ko text: selectedItem().version--><!--/ko-->  </p>
-    <p>Name:
-        <input data-bind="hasfocus:true, value: selectedItem().name" style="width: auto" /></p>
-    <p>Description:
-        <input data-bind="value: selectedItem().description" style="width: auto"/></p>
+    <section data-bind="if: selectedItem" style="position: absolute; background-color: lightgreen">
+        <div style="margin:10px">
+        <p>Id:
+            <!--ko text: selectedItem().id-->
+            <!--/ko-->
+            -v.<!--ko text: selectedItem().version--><!--/ko-->
+        </p>
+        <label for="name">Name</label>
+        <input id="name" data-bind="value: selectedItem().name" autofocus style="width: auto" />
+        <label for="description">Description</label>
+        <input id="description" data-bind="value: selectedItem().description" style="width: auto" />
+        <label for="applicationType">Application Type</label>
+        <select id="applicationType" data-bind="value: selectedItem().applicationType" style="width: auto">
+            <option>Service</option>
+            <option>Desktop</option>
+        </select>
+        <label for="criticality">Criticality</label>
+        <select id="criticality" data-bind="value: selectedItem().criticality" style="width: auto">
+            <option>Mission Critical</option>
+            <option>Critical</option>
+            <option>Non Critical</option>
+        </select>
+        <label for="language">Language</label>
+        <select id ="language" multiple data-bind="selectedOptions: selectedItem().language" style="width: auto">
+            <option>C#</option>
+            <option>XAML</option>
+            <option>Java</option>
+            <option>C++</option>
+            <option>Python</option>
+        </select>
+        <label for="operatingSystem">Operating System</label>
+        <select id="operatingSystem" data-bind="value: selectedItem().operatingSystem" style="width: auto">
+            <option>Windows</option>
+            <option>Unix/Linux</option>
+        </select>
+        <label for="itOwner">IT Owner</label>
+        <input id="itOwner" list="devs" data-bind="value: selectedItem().itOwner" style="width: auto" />
+        <datalist id="devs" style="width: auto">
+            <option value="Sam Ratcliff"></option>
+            <option value="Dave Collis"></option>
+            <option value="Steve Barham"></option>
+            <option value="Chris Shepherd"></option>
+            <option value="Vlad"></option>
+        </datalist>
+        <label for="businessOwner">Business Owner</label>
+        <input id="businessOwner" list="users" data-bind="value: selectedItem().businessOwner" style="width: auto" />
+        <datalist id="users" style="width: auto">
+            <option value="Graham Rock"></option>
+            <option value="Bas Heeremans"></option>
+            <option value="Jim Baseley"></option>
+        </datalist>
+        <label for="url">Url</label>
+        <input id="url" type="url" data-bind="value: selectedItem().url" style="width: auto" />
+        <label for="isVendor">Vendor</label>
+        <input id="isVendor" type="checkbox" data-bind="value: selectedItem().isVendor" style="width: auto" />
+            </div>
     </section>
-<section data-bind="if: selectedLink" style="position: absolute;background-color: lightgreen">
-    <p> Id: <!--ko text: selectedLink().id--><!--/ko--> -v.<!--ko text: selectedLink().version--><!--/ko-->  </p>
-    <p>Source:
-        <span data-bind="text: selectedLink().source.name" /></p>
-    <p>Target:
-        <span data-bind="text: selectedLink().target.name" /></p>
-</section>
+    <section data-bind="if: selectedLink" style="position: absolute; background-color: lightgreen">
+        <p>Id:
+            <!--ko text: selectedLink().id-->
+            <!--/ko-->
+            -v.<!--ko text: selectedLink().version--><!--/ko-->
+        </p>
+        <p>
+            Source:
+        <span data-bind="text: selectedLink().source.name" />
+        </p>
+        <p>
+            Target:
+        <span data-bind="text: selectedLink().target.name" />
+        </p>
+    </section>
     <svg class="graph">
         <defs>
             <marker id="end-arrow" viewBox="0 -5 10 10" refX="6" markerWidth="3" markerHeight="3" orient="auto">
                 <path d="M0,-5L10,0L0,5" fill="#999" />
             </marker>
         </defs>
-        <rect class="overlay" height="100%" width="100%" ></rect>
-        <path class="link dragline hidden" d="M0,0L0,0" ></path>
+        <rect class="overlay" height="100%" width="100%"></rect>
+        <path class="link dragline hidden" d="M0,0L0,0"></path>
         <g class="vis"></g>
     </svg>
 </section>
 
-<ul data-bind="foreach: graphs" style="list-style:none;margin:0px">
+<ul data-bind="foreach: graphs" style="list-style: none; margin: 0px">
     <li>
-    <button data-bind="title: description, text: name, click: $root.selectGraph" style="float:left"></button>
-        </li>
+        <button data-bind="title: description, text: name, click: $root.selectGraph" style="float: left"></button>
+    </li>
 </ul>
 
 <script src="/Scripts/jquery.signalR-2.0.0.js"></script>
-    <script src="/signalr/hubs"></script>
+<script src="/signalr/hubs"></script>
 
 <script src="/Scripts/graph.js"></script>
