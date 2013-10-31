@@ -23,8 +23,8 @@ var dragline = svg.select(".dragline");
 
 var viewModel = new GraphViewModel();
 
-var link = vis.selectAll(".link"),
-    node = vis.selectAll(".node");
+var link = d3.select("#links_container").selectAll(".link"),
+    node = d3.select("#nodes_container").selectAll(".node");
 
 $(function() {
     $(document)
